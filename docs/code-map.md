@@ -10,12 +10,13 @@ Last fully verified commit: `unknown`
 | --- | --- | --- | --- |
 | Electron shell, window chrome, login bridge, installer config | `desktop/main.js`, `desktop/preload.cjs`, `scripts/dev-electron.mjs`, `package.json` | `src/lib/neteaseCookie.test.ts`, `src/lib/qqCookie.test.ts` | `npm run dev:electron`, `npm run build:electron:dir`, `npm run build:electron` |
 | Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npm run lint`, `npm run build`, `npm run dev:electron` |
-| Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
+| Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/neteaseAudioProxy.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
 | Netease API, cookies, liked songs, playlists, daily recommendations | `vite.config.ts`, `local-server.mjs`, `server/netease-library.mjs`, `src/lib/neteaseCookie.ts` | `src/lib/neteaseCookie.test.ts`, `src/lib/neteasePlaylist.test.ts` | `npx tsx src/lib/neteaseCookie.test.ts`, `npx tsx src/lib/neteasePlaylist.test.ts`, `npm run build` |
 | QQ Music API, cookies, search, personal playlists, lyrics, audio proxy | `server/qq-music.mjs`, `vite.config.ts`, `local-server.mjs`, `src/lib/qqCookie.ts` | `src/lib/qqCookie.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/qqCookie.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run build` |
-| Update checks and installer download | `server/update-service.mjs`, `src/lib/updateSource.ts`, `desktop/main.js`, `package.json` | `src/lib/updateSource.test.ts` | `npx tsx src/lib/updateSource.test.ts`, `npm run build:electron:dir` |
+| Update checks, prompt, release notes, mirrored installer download | `server/update-service.mjs`, `src/lib/updateSource.ts`, `src/lib/updatePrompt.ts`, `src/components/UI/UI.tsx`, `desktop/main.js`, `package.json` | `src/lib/updateSource.test.ts`, `src/lib/updatePrompt.test.ts`, `server/update-service.test.mjs` | `npx tsx src/lib/updateSource.test.ts`, `npx tsx src/lib/updatePrompt.test.ts`, `npx tsx server/update-service.test.mjs`, `npm run build:electron:dir` |
 | Preset import/export | `src/lib/presetTransfer.ts`, `src/components/UI/UI.tsx` | `src/lib/presetTransfer.test.ts` | `npx tsx src/lib/presetTransfer.test.ts`, `npm run lint` |
 | Theme colors, backdrop lock, and shader palette | `src/lib/themes.ts`, `src/lib/displaySettings.ts`, `src/App.tsx`, `src/components/UI/UI.tsx`, `src/components/AudioVisualizer/MapScene.tsx`, `src/components/AudioVisualizer/CustomShaderMaterial.ts` | `src/lib/themes.test.ts`, `src/lib/displaySettings.test.ts`, `src/lib/themeShader.test.ts`, `src/lib/presetTransfer.test.ts` | `npx tsx src/lib/themes.test.ts`, `npx tsx src/lib/displaySettings.test.ts`, `npx tsx src/lib/themeShader.test.ts`, `npm run build`, manual custom theme color check |
+| Local audio input sources | `src/lib/AudioEngine.ts`, `src/lib/audioInput.ts`, `src/components/UI/UI.tsx`, `desktop/main.js`, `desktop/preload.cjs`, `src/desktop.d.ts` | `src/lib/audioInput.test.ts`, `src/lib/audioFrameCache.test.ts` | `npx tsx src/lib/audioInput.test.ts`, `npx tsx src/lib/audioFrameCache.test.ts`, `npm run lint`, `npm run build:electron:dir`, manual Windows system-audio and microphone check |
 | Audio analysis, realtime kick detector, audio debugger, ground effects mixer, terrain density, platter rotation, floating blocks, 3D terrain, factory camera, and 3D lyrics | `src/lib/AudioEngine.ts`, `src/lib/beatDetector.ts`, `src/lib/kickEnvelope.ts`, `src/components/AudioDebugger/AudioDebugger.tsx`, `src/lib/groundEqSettings.ts`, `src/lib/sceneDefaults.ts`, `src/lib/lyricsSettings.ts`, `src/lib/lyricLineWrapping.ts`, `src/lib/terrainResponse.ts`, `src/components/AudioVisualizer/MapScene.tsx`, `src/components/AudioVisualizer/SpatialLyrics3D.tsx`, `src/components/AudioVisualizer/CustomShaderMaterial.ts` | `src/lib/audioFrameCache.test.ts`, `src/lib/beatDetector.test.ts`, `src/lib/kickEnvelope.test.ts`, `src/lib/groundEqSettings.test.ts`, `src/lib/sceneDefaults.test.ts`, `src/lib/lyricsSettings.test.ts`, `src/lib/lyricLineWrapping.test.ts`, `src/lib/terrainResponse.test.ts`, `src/lib/presetTransfer.test.ts`, `src/lib/scenePlatterRotation.test.ts`, `src/lib/spatialLyricsScene.test.ts` | `npx tsx src/lib/audioFrameCache.test.ts`, `npx tsx src/lib/beatDetector.test.ts`, `npx tsx src/lib/kickEnvelope.test.ts`, `npx tsx src/lib/groundEqSettings.test.ts`, `npx tsx src/lib/sceneDefaults.test.ts`, `npx tsx src/lib/lyricsSettings.test.ts`, `npx tsx src/lib/lyricLineWrapping.test.ts`, `npx tsx src/lib/terrainResponse.test.ts`, `npx tsx src/lib/presetTransfer.test.ts`, `npx tsx src/lib/scenePlatterRotation.test.ts`, `npx tsx src/lib/spatialLyricsScene.test.ts`, `npm run lint`, `npm run build`, manual Debugger playback in Electron/browser |
 
 ## End-To-End Flow
@@ -76,7 +77,34 @@ Last-played cloud restore on startup
 -> setLyricsText() drives App.currentLyricsText and MapScene/SpatialLyrics3D
 ```
 
+```text
+App update flow
+-> UI startup waits briefly and calls /api/update/latest
+-> server/update-service.mjs reads package.json version and GitHub update config
+-> GitHub latest Release provides tag/version, release notes, and setup .exe asset
+-> UI shows update prompt unless the same latestVersion was skipped
+-> user clicks update
+-> /api/update/download creates a job with GitHub direct URL plus configured mirrors
+-> server streams the selected channel to disk and updates job.received per chunk
+-> /api/update/download/status drives UI progress
+-> desktop/main.js opens the downloaded installer through window.sonicDesktop.openUpdateInstaller()
+```
+
 ## Code Map
+
+### App Updates
+
+`server/update-service.mjs`
+
+Owns GitHub latest Release checks, installer asset selection, download job state, mirrored download URL generation, streaming download progress, and fallback across channels. Keep downloads streaming; using `response.arrayBuffer()` makes the UI stay at 0 until the full installer finishes. Public mirrors are third-party and unstable, so direct GitHub must remain first and mirror failures must fall through to the next candidate.
+
+`src/components/UI/UI.tsx`
+
+Owns automatic startup update checks, manual check behavior, update prompt display, Release notes rendering, skip-this-version behavior, and download polling. Manual checks should show the prompt even for a skipped version; automatic checks should respect `sonic-topography-skipped-update-version-v1`.
+
+`src/lib/updatePrompt.ts`
+
+Stores the skipped update version and decides whether the current latest version should prompt. It must store only the skipped version string, not personal data or Release content.
 
 ### React Player UI
 
@@ -116,6 +144,10 @@ Packaged Electron local Express server. Mirrors the dev server API behavior. If 
 `server/netease-playback.mjs`
 
 Shared Netease playback URL helper for dev and packaged servers. Normalizes `br` to `320000`, `192000`, or `128000`; builds the upstream `/api/song/enhance/player/url` request; and includes bitrate in the playable URL cache key. If changing available Netease qualities, update `src/lib/playbackQuality.ts`, `src/lib/neteasePlayback.test.ts`, `vite.config.ts`, and `local-server.mjs` together.
+
+`server/netease-audio-proxy.mjs`
+
+Shared Netease audio stream proxy used by both Vite dev middleware and packaged `local-server.mjs`. It forwards range/status/content headers, defaults content type to `audio/mpeg`, and cancels the upstream Web Stream reader when the browser closes the local request, the user switches tracks, or the upstream reader throws. Keep this shared helper in place; duplicating stream pump logic between dev and packaged mode can reintroduce Electron main-process crashes from unhandled `undici` stream errors.
 
 `src/lib/neteaseCookie.ts`
 
@@ -158,6 +190,14 @@ Audio debugging overlay. Shows the FFT spectrum and band levels, then a Kick Mon
 `src/lib/metadata.ts`
 
 Local audio metadata reader for uploaded files and demo audio. It dynamically imports `music-metadata-browser` only when local metadata is requested; cloud music cover art comes from Netease/QQ API song data instead.
+
+`src/lib/audioInput.ts`
+
+Local input-source helper for microphone device enumeration. `normalizeAudioInputDevices()` filters `audioinput` devices and provides stable fallback labels before permission reveals real names. `UI.tsx` listens to `navigator.mediaDevices.devicechange` so newly plugged microphones, USB interfaces, Bluetooth headsets, and virtual inputs appear after the OS exposes them.
+
+`desktop/main.js`
+
+Electron system-audio capture setup. `configureSystemAudioCapture()` uses `session.defaultSession.setDisplayMediaRequestHandler()` and Windows `audio: 'loopback'` so the renderer can request a system-audio `MediaStream` through `getDisplayMedia()`. Keep the UI meaning as "System Audio"; the hidden video/display capture detail is only an Electron implementation requirement.
 
 `src/components/AudioVisualizer/MapScene.tsx`
 
@@ -240,6 +280,8 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 | `src/lib/neteasePlaylist.test.ts` | Netease playlist `trackIds` completeness, track detail merging, playlist limit parsing |
 | `src/lib/playbackQuality.test.ts` | Playback quality defaults, normalization, localStorage persistence, QQ/Netease playback URL parameters |
 | `src/lib/neteasePlayback.test.ts` | Netease playback bitrate normalization, upstream player URL construction, playable URL cache key bitrate separation |
+| `src/lib/neteaseAudioProxy.test.ts` | Netease audio proxy streaming headers, normal chunk completion, client-close reader cancellation, and reader-error response ending |
+| `src/lib/audioInput.test.ts` | Local audio input device normalization and AudioEngine media-stream source switching/track cleanup |
 | `src/lib/audioFrameCache.test.ts` | AudioEngine single-frame analysis cache, analyser read deduplication, and default detector fields |
 | `src/lib/beatDetector.test.ts` | Realtime kick detector behavior: silence, sustained bass, transient kicks, cooldown, active window selection, beat lamp, and beat timeline |
 | `src/lib/kickEnvelope.test.ts` | Realtime kick envelope behavior: silence, sustained-bass breathing, onset lift, and release |
@@ -257,6 +299,8 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 | `src/lib/qqCookie.test.ts` | QQ cookie cleaning, login state, storage, request headers |
 | `src/lib/qqMusicLibrary.test.ts` | QQ playlist detection, playlist filtering, song mapping, track limit parsing, quality candidates |
 | `src/lib/updateSource.test.ts` | Update source normalization |
+| `src/lib/updatePrompt.test.ts` | Skipped update version storage and prompt suppression behavior |
+| `server/update-service.test.mjs` | GitHub Release download mirror candidates, streaming progress, channel fallback, and all-channel failure |
 | `src/lib/triggerSettings.test.ts` | Pulse/meteor trigger settings import/export |
 | `src/lib/presetTransfer.test.ts` | Preset package normalization, cookie exclusion, playlist migration |
 
@@ -283,10 +327,17 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 
 1. Update `src/lib/playbackQuality.ts` for available UI options, defaults, storage, and URL builders.
 2. For QQ quality behavior, update `server/qq-music.mjs` and `src/lib/qqMusicLibrary.test.ts`.
-3. For Netease bitrate behavior, update `server/netease-playback.mjs`, `vite.config.ts`, and `local-server.mjs`; keep the cache key separated by bitrate.
+3. For Netease bitrate behavior, update `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs` if stream behavior changes, `vite.config.ts`, and `local-server.mjs`; keep the cache key separated by bitrate and keep dev/packaged audio proxy behavior shared.
 4. Update `src/components/UI/UI.tsx` if the settings panel or playback dispatch changes.
-5. Run `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, and `npm run build`.
+5. Run `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, and `npm run build`.
 6. For real acceptance, switch QQ and Netease quality settings, replay the same cloud song, and verify the request URL includes the selected `quality` or `br`.
+
+### Fix Netease Audio Proxy Crashes
+
+1. Start at `server/netease-audio-proxy.mjs`; it must remain the shared stream pump for `vite.config.ts` and packaged `local-server.mjs`.
+2. Check `/api/netease/audio` in both files only for request parsing, playable URL lookup, and header construction.
+3. Run `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npm run lint`, `npm run build`, and `npm run build:electron:dir`.
+4. For real acceptance, run the packaged directory build, play a Netease cloud song, rapidly switch tracks, pause/resume, close the window during playback, and test after network/proxy interruption. The app must not show an Electron "JavaScript error occurred in the main process" dialog.
 
 ### Change Account Login
 
@@ -295,6 +346,23 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 3. Update account UI in `src/components/UI/UI.tsx`.
 4. Update cookie helpers and tests as needed.
 5. Verify with real QR login in Electron.
+
+### Change App Updates
+
+1. Update `server/update-service.mjs` for GitHub Release metadata, installer asset selection, mirror candidates, download streaming, fallback, or status payload changes.
+2. Update `src/components/UI/UI.tsx` for startup checks, the update prompt, Release notes display, skip-version behavior, and download progress UI.
+3. Update `src/lib/updatePrompt.ts` if skipped-version storage or prompt suppression semantics change.
+4. Keep `package.json` `version` and `sonicTopography.update.downloadMirrors` aligned with the release you plan to ship.
+5. Run `npx tsx src/lib/updateSource.test.ts`, `npx tsx src/lib/updatePrompt.test.ts`, `npx tsx server/update-service.test.mjs`, `npm run lint`, `npm run build`, and `npm run build:electron:dir`.
+6. For real acceptance, publish or simulate a higher GitHub Release with a setup `.exe`, verify the startup prompt shows Release notes, verify "next time" and "skip this version", then trigger a download and confirm progress increments before completion. To test fallback, make the first channel fail and confirm a mirror channel is selected.
+
+### Change Local Audio Inputs
+
+1. Update `src/lib/AudioEngine.ts` when changing player-vs-stream source wiring. Media streams must connect to `AnalyserNode` only, not `audioCtx.destination`.
+2. Update `src/lib/audioInput.ts` and `src/components/UI/UI.tsx` when changing microphone device listing, labels, or hot-plug behavior.
+3. Update `desktop/main.js`, `desktop/preload.cjs`, and `src/desktop.d.ts` when changing Electron system-audio support or platform flags.
+4. Run `npx tsx src/lib/audioInput.test.ts`, `npx tsx src/lib/audioFrameCache.test.ts`, `npm run lint`, `npm run build`, and `npm run build:electron:dir`.
+5. For real acceptance on Windows, select System Audio while another app is playing sound, then select multiple microphone devices including a newly plugged device, and confirm terrain/debugger response without program audio monitoring or feedback.
 
 ### Change Ground Effects Mixer
 
@@ -339,6 +407,8 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 npx tsx src/lib/neteasePlaylist.test.ts
 npx tsx src/lib/playbackQuality.test.ts
 npx tsx src/lib/neteasePlayback.test.ts
+npx tsx src/lib/neteaseAudioProxy.test.ts
+npx tsx src/lib/audioInput.test.ts
 npx tsx src/lib/audioFrameCache.test.ts
 npx tsx src/lib/beatDetector.test.ts
 npx tsx src/lib/terrainResponse.test.ts
@@ -356,6 +426,8 @@ npx tsx src/lib/neteaseCookie.test.ts
 npx tsx src/lib/qqCookie.test.ts
 npx tsx src/lib/qqMusicLibrary.test.ts
 npx tsx src/lib/updateSource.test.ts
+npx tsx src/lib/updatePrompt.test.ts
+npx tsx server/update-service.test.mjs
 npx tsx src/lib/triggerSettings.test.ts
 npx tsx src/lib/presetTransfer.test.ts
 npm run lint
@@ -383,7 +455,10 @@ rg -n "wallpaper|capture|build:go|build:wallpaper|sonicserver|cmd/sonic-topograp
 
 - Electron is the only formal packaging direction. Go single EXE, Wallpaper Engine, and system-audio capture are not product routes.
 - Windows installer output is produced by `npm run build:electron` under `release/`. Publish that setup `.exe` as a GitHub Release asset; pushing code alone does not publish an app update.
+- Update downloads try GitHub direct first, then configured public mirrors from `package.json`. Mirrors are third-party and may fail or throttle; the app should fall back across channels and report a clear failure if all channels fail.
 - Do not bulk delete files or directories. If a directory must be cleared, ask the user to do it manually.
 - In Electron dev mode, `src/` usually hot reloads. Changes to `desktop/main.js`, `desktop/preload.cjs`, `server/*.mjs`, `vite.config.ts`, or `local-server.mjs` may require restarting `npm run dev:electron`.
 - Packaged mode starts `local-server.mjs` from `desktop/main.js`, usually on port `45437`.
+- Netease audio streaming must stay shared through `server/netease-audio-proxy.mjs`; otherwise a dev-only stream fix can leave the installed Electron build exposed to unhandled Node `undici` errors during track switches, close, or network interruption.
+- System audio input is Windows-first and uses Electron display-media loopback under the hood. Microphone devices use standard `navigator.mediaDevices` APIs and should refresh on `devicechange` after the OS recognizes new hardware.
 - Cloud music playback can be affected by copyright, membership, region, account status, and upstream API changes.

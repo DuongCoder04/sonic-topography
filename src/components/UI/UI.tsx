@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Volume2, SkipForward, SkipBack, Palette, Plus, ListMusic, Shuffle, Repeat, Trash2, Minus, Square, X, Search, Lock, Unlock, Menu, Settings, Pin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Pause, Volume2, SkipForward, SkipBack, Palette, Plus, ListMusic, Shuffle, Repeat, Trash2, Minus, Square, X, Search, Lock, Unlock, Menu, Settings, Pin, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { engine } from '../../lib/AudioEngine';
 import { BUILT_IN_THEME_IDS, CUSTOM_THEME_ID, createCustomThemePreset, themes, type CustomThemeSettings, type ThemeColors, type ThemeRotationSettings } from '../../lib/themes';
 import {
@@ -69,6 +69,17 @@ import {
   type PlaybackQualitySettings,
   type QQPlaybackQuality,
 } from '../../lib/playbackQuality';
+import {
+  hasMediaDeviceSupport,
+  listAudioInputDevices,
+  type AudioInputDevice,
+  type AudioInputMode,
+} from '../../lib/audioInput';
+import {
+  readSkippedUpdateVersionStorage,
+  shouldShowUpdatePrompt,
+  writeSkippedUpdateVersionStorage,
+} from '../../lib/updatePrompt';
 
 interface UIProps {
   theme: string;
@@ -134,6 +145,34 @@ type SearchProvider = 'netease' | 'qq';
 type PendingDelete =
   | { type: 'song'; playlistId: string; songId: number | string; label: string }
   | { type: 'playlist'; playlistId: string; label: string };
+
+interface UpdateReleaseInfo {
+  tagName?: string;
+  name?: string;
+  htmlUrl?: string;
+  publishedAt?: string;
+  notes?: string;
+}
+
+interface AvailableUpdateInfo {
+  configured?: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  updateAvailable?: boolean;
+  release?: UpdateReleaseInfo;
+}
+
+interface UpdateDownloadJob {
+  id: string;
+  status: 'queued' | 'downloading' | 'ready' | 'failed';
+  version?: string;
+  name?: string;
+  received?: number;
+  total?: number;
+  filePath?: string;
+  error?: string;
+  channelName?: string;
+}
 
 const PLAYLIST_STORAGE_KEY = 'sonic-topography-playlists-v1';
 const SIDE_NAV_HINT_STORAGE_KEY = 'sonic-topography-side-nav-hint-seen-v1';
@@ -427,6 +466,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   }, []);
   const [isDragging, setIsDragging] = useState(false);
   const [showOptionsPanel, setShowOptionsPanel] = useState(false);
+  const [showAudioInputPanel, setShowAudioInputPanel] = useState(false);
   const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(false);
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(readDisplaySettingsStorage);
   const [playbackQualitySettings, setPlaybackQualitySettings] = useState<PlaybackQualitySettings>(readPlaybackQualitySettingsStorage);
@@ -453,6 +493,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [playQueue, setPlayQueue] = useState<NeteaseSong[]>([]);
   const [currentSongId, setCurrentSongId] = useState<number | string | null>(null);
   const [currentSong, setCurrentSongState] = useState<NeteaseSong | null>(null);
+  const [audioInputMode, setAudioInputMode] = useState<AudioInputMode>('player');
+  const [audioInputDevices, setAudioInputDevices] = useState<AudioInputDevice[]>([]);
+  const [selectedAudioInputId, setSelectedAudioInputId] = useState('');
+  const [audioInputStatus, setAudioInputStatus] = useState('');
 
   const setCurrentSong = (song: NeteaseSong | null) => {
     setCurrentSongState(song);
@@ -486,6 +530,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [desktopLoginStatus, setDesktopLoginStatus] = useState('');
   const [updateStatus, setUpdateStatus] = useState('');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdateInfo | null>(null);
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
+  const [downloadJob, setDownloadJob] = useState<UpdateDownloadJob | null>(null);
+  const [skippedUpdateVersion, setSkippedUpdateVersion] = useState(readSkippedUpdateVersionStorage);
   const [isMobileSideNavOpen, setIsMobileSideNavOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [fetchedNeteasePlaylists, setFetchedNeteasePlaylists] = useState<NeteasePlaylistSummary[]>([]);
@@ -508,6 +556,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [presetTransferStatus, setPresetTransferStatus] = useState('');
   const hasLoadedPlaylistsRef = useRef(false);
+  const updatePollTimerRef = useRef<number | null>(null);
   const hasBothCloudLogins = isNeteaseCookieValid && isQQCookieValid;
   const effectiveSearchProvider: SearchProvider = hasBothCloudLogins
     ? searchProvider
@@ -533,6 +582,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const closeFloatingPanels = () => {
     setShowOptionsPanel(false);
+    setShowAudioInputPanel(false);
     setShowSearchPanel(false);
     setShowNeteasePanel(false);
     setShowPlaylistPanel(false);
@@ -541,6 +591,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   };
 
   const openOptionsPanel = () => {
+    setShowAudioInputPanel(false);
     setShowSearchPanel(false);
     setShowNeteasePanel(false);
     setShowPlaylistPanel(false);
@@ -550,6 +601,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const openSearchPanel = () => {
     setShowOptionsPanel(false);
+    setShowAudioInputPanel(false);
     setShowNeteasePanel(false);
     setShowPlaylistPanel(false);
     setShowSearchPanel(true);
@@ -559,6 +611,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const openCloudPanel = (provider: CloudProvider) => {
     setCloudProvider(provider);
     setShowOptionsPanel(false);
+    setShowAudioInputPanel(false);
     setShowSearchPanel(false);
     setShowPlaylistPanel(false);
     setShowNeteasePanel(true);
@@ -573,9 +626,19 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const openPlaylistPanel = () => {
     setShowOptionsPanel(false);
+    setShowAudioInputPanel(false);
     setShowSearchPanel(false);
     setShowNeteasePanel(false);
     setShowPlaylistPanel(true);
+    setIsMobileSideNavOpen(false);
+  };
+
+  const openAudioInputPanel = () => {
+    setShowOptionsPanel(false);
+    setShowSearchPanel(false);
+    setShowNeteasePanel(false);
+    setShowPlaylistPanel(false);
+    setShowAudioInputPanel(true);
     setIsMobileSideNavOpen(false);
   };
 
@@ -586,6 +649,43 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   useEffect(() => {
     writePlaybackQualitySettingsStorage(playbackQualitySettings);
   }, [playbackQualitySettings]);
+
+  const refreshAudioInputDevices = async () => {
+    if (!hasMediaDeviceSupport()) {
+      setAudioInputDevices([]);
+      return;
+    }
+
+    try {
+      const devices = await listAudioInputDevices();
+      setAudioInputDevices(devices);
+      if (!selectedAudioInputId && devices[0]) setSelectedAudioInputId(devices[0].id);
+      if (selectedAudioInputId && !devices.some((device) => device.id === selectedAudioInputId)) {
+        setSelectedAudioInputId(devices[0]?.id || '');
+        if (audioInputMode === 'microphone') {
+          setAudioInputStatus('Microphone disconnected. Choose another input.');
+          engine.stopExternalInput();
+          setAudioInputMode('player');
+          setTrackName('No track selected');
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to list audio input devices:', error);
+      setAudioInputStatus('Unable to read audio input devices.');
+    }
+  };
+
+  useEffect(() => {
+    refreshAudioInputDevices();
+    const mediaDevices = navigator.mediaDevices;
+    if (!mediaDevices?.addEventListener) return;
+    mediaDevices.addEventListener('devicechange', refreshAudioInputDevices);
+    return () => mediaDevices.removeEventListener('devicechange', refreshAudioInputDevices);
+  }, [selectedAudioInputId, audioInputMode]);
+
+  useEffect(() => {
+    return () => engine.stopExternalInput();
+  }, []);
 
   useEffect(() => {
     if (isMobileSideNavOpen) markSideNavHintSeen();
@@ -775,55 +875,108 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     }
   };
 
-  const checkForUpdate = async () => {
+  const clearUpdatePollTimer = () => {
+    if (updatePollTimerRef.current !== null) {
+      window.clearTimeout(updatePollTimerRef.current);
+      updatePollTimerRef.current = null;
+    }
+  };
+
+  const checkForUpdate = async (options: { silent?: boolean; manual?: boolean } = {}) => {
     setIsCheckingUpdate(true);
-    setUpdateStatus('正在检查更新...');
+    if (!options.silent) setUpdateStatus('正在检查更新...');
     try {
       const response = await fetch('/api/update/latest');
       const data = await response.json();
       if (!data.configured) {
-        setUpdateStatus('更新源未配置。配置 GitHub owner/repo 后即可检查新版本。');
+        if (!options.silent) setUpdateStatus('更新源未配置。配置 GitHub owner/repo 后即可检查新版本。');
         return;
       }
       if (!data.updateAvailable) {
-        setUpdateStatus(`当前已是最新版本 ${data.currentVersion}`);
+        if (!options.silent) setUpdateStatus(`当前已是最新版本 ${data.currentVersion}`);
         return;
       }
-      setUpdateStatus(`发现新版本 ${data.latestVersion}，正在下载安装包...`);
+      setAvailableUpdate(data);
+      setDownloadJob(null);
+      setUpdateStatus(`发现新版本 ${data.latestVersion}`);
+      if (options.manual || shouldShowUpdatePrompt(data.latestVersion, skippedUpdateVersion)) {
+        setShowUpdatePrompt(true);
+      }
+    } catch (error) {
+      console.warn('Unable to check updates:', error);
+      if (!options.silent) setUpdateStatus('检查更新失败');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const startUpdateDownload = async () => {
+    clearUpdatePollTimer();
+    setUpdateStatus('正在启动更新下载...');
+    try {
       const downloadResponse = await fetch('/api/update/download', { method: 'POST' });
       const downloadData = await downloadResponse.json();
       if (!downloadData.ok || !downloadData.job?.id) {
         setUpdateStatus(downloadData.error || '更新下载启动失败');
         return;
       }
+      setDownloadJob(downloadData.job);
       const poll = async () => {
-        const statusResponse = await fetch(`/api/update/download/status?id=${encodeURIComponent(downloadData.job.id)}`);
-        const statusData = await statusResponse.json();
-        const job = statusData.job;
-        if (!job) {
-          setUpdateStatus('更新下载任务丢失');
-          return;
+        try {
+          const statusResponse = await fetch(`/api/update/download/status?id=${encodeURIComponent(downloadData.job.id)}`);
+          const statusData = await statusResponse.json();
+          const job = statusData.job as UpdateDownloadJob | undefined;
+          if (!job) {
+            setUpdateStatus('更新下载任务丢失');
+            return;
+          }
+          setDownloadJob(job);
+          if (job.status === 'ready') {
+            setUpdateStatus('安装包已下载，正在打开...');
+            if (window.sonicDesktop?.isDesktop && job.filePath) await window.sonicDesktop.openUpdateInstaller(job.filePath);
+            return;
+          }
+          if (job.status === 'failed') {
+            setUpdateStatus(job.error || '更新下载失败，可能是 GitHub 或镜像连接受限。');
+            return;
+          }
+          const total = Number(job.total || 0);
+          const progress = total > 0
+            ? `${formatBytes(job.received)} / ${formatBytes(total)}`
+            : `已下载 ${formatBytes(job.received)}`;
+          setUpdateStatus(`正在通过 ${job.channelName || '下载通道'} 下载... ${progress}`);
+          updatePollTimerRef.current = window.setTimeout(poll, 1000);
+        } catch (error) {
+          console.warn('Unable to poll update download:', error);
+          setUpdateStatus('更新下载状态读取失败');
         }
-        if (job.status === 'ready') {
-          setUpdateStatus('安装包已下载，正在打开...');
-          if (window.sonicDesktop?.isDesktop) await window.sonicDesktop.openUpdateInstaller(job.filePath);
-          return;
-        }
-        if (job.status === 'failed') {
-          setUpdateStatus(job.error || '更新下载失败');
-          return;
-        }
-        setUpdateStatus(`正在下载更新 ${job.received || 0}/${job.total || 0}`);
-        window.setTimeout(poll, 1000);
       };
       poll();
     } catch (error) {
-      console.warn('Unable to check updates:', error);
-      setUpdateStatus('检查更新失败');
-    } finally {
-      setIsCheckingUpdate(false);
+      console.warn('Unable to start update download:', error);
+      setUpdateStatus('更新下载启动失败');
     }
   };
+
+  const remindUpdateLater = () => {
+    setShowUpdatePrompt(false);
+  };
+
+  const skipThisUpdateVersion = () => {
+    const version = availableUpdate?.latestVersion || '';
+    writeSkippedUpdateVersionStorage(version);
+    setSkippedUpdateVersion(version);
+    setShowUpdatePrompt(false);
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      checkForUpdate({ silent: true });
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [skippedUpdateVersion]);
+
+  useEffect(() => clearUpdatePollTimer, []);
 
   const syncImportedPlaylists = (nextPlaylists: SavedPlaylist[]) => {
     fetch('/api/playlists', {
@@ -1138,6 +1291,83 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     }
   };
 
+  const prepareExternalInputUi = (label: string, mode: AudioInputMode) => {
+    setAudioInputMode(mode);
+    setTrackName(label);
+    setCurrentSong(null);
+    setCurrentSongId(null);
+    setCurrentCover('');
+    setLyricsText('');
+    setSearchStatus('');
+    setShowSearchPanel(false);
+    setShowNeteasePanel(false);
+  };
+
+  const startSystemAudioInput = async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setAudioInputStatus('System audio capture is not available in this environment.');
+      return;
+    }
+    if (window.sonicDesktop?.isDesktop && !window.sonicDesktop.supportsSystemAudioLoopback) {
+      setAudioInputStatus('System audio capture is currently supported on Windows.');
+      return;
+    }
+
+    try {
+      setAudioInputStatus('Starting system audio...');
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      stream.getVideoTracks().forEach((track) => track.stop());
+      if (stream.getAudioTracks().length === 0) {
+        stream.getTracks().forEach((track) => track.stop());
+        setAudioInputStatus('No system audio track was captured.');
+        return;
+      }
+      engine.loadStream(stream, 'system');
+      prepareExternalInputUi('System Audio Input', 'system');
+      setAudioInputStatus('Listening to system audio.');
+      setShowAudioInputPanel(false);
+    } catch (error) {
+      console.warn('Unable to start system audio input:', error);
+      setAudioInputStatus('Unable to start system audio capture.');
+    }
+  };
+
+  const startMicrophoneInput = async (deviceId = selectedAudioInputId) => {
+    if (!hasMediaDeviceSupport()) {
+      setAudioInputStatus('Microphone capture is not available in this environment.');
+      return;
+    }
+
+    try {
+      setAudioInputStatus('Starting microphone...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        video: false,
+      });
+      await refreshAudioInputDevices();
+      const device = audioInputDevices.find((item) => item.id === deviceId);
+      engine.loadStream(stream, 'microphone');
+      prepareExternalInputUi(device?.label ? `Mic: ${device.label}` : 'Microphone Input', 'microphone');
+      setAudioInputStatus(device?.label ? `Listening to ${device.label}.` : 'Listening to microphone.');
+      setShowAudioInputPanel(false);
+    } catch (error) {
+      console.warn('Unable to start microphone input:', error);
+      setAudioInputStatus('Unable to start microphone input. Check device permission.');
+    }
+  };
+
+  const returnToPlayerInput = () => {
+    engine.stopExternalInput();
+    setAudioInputMode('player');
+    setAudioInputStatus('');
+    if (!currentSong && (trackName === 'System Audio Input' || trackName === 'Microphone Input' || trackName.startsWith('Mic: '))) {
+      setTrackName('No track selected');
+    }
+  };
+
   const processFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
@@ -1154,6 +1384,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     }
 
     if (audioFile) {
+        setAudioInputMode('player');
+        setAudioInputStatus('');
         setLyricsText('');
         const metadata = await extractAudioMetadata(audioFile, audioFile.name);
         if (metadata.lyrics) {
@@ -1206,6 +1438,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
       const audioBlob = await audioResponse.blob();
       const metadata = await extractAudioMetadata(audioBlob, audioName);
+      setAudioInputMode('player');
+      setAudioInputStatus('');
       setTrackName(metadata.displayName);
       setCurrentCover(metadata.cover || '');
 
@@ -1232,6 +1466,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   };
 
   const togglePlay = () => {
+    if (audioInputMode !== 'player') {
+      returnToPlayerInput();
+      return;
+    }
     engine.init();
     engine.togglePlay();
   };
@@ -1281,6 +1519,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   };
 
   const loadNeteaseSong = async (song: NeteaseSong, queue?: NeteaseSong[]) => {
+    setAudioInputMode('player');
+    setAudioInputStatus('');
     if (queue) setPlayQueue(queue);
     setCurrentSongId(songIdentity(song));
     setCurrentSong(song);
@@ -1752,7 +1992,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           <button onClick={openPlaylistPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
             歌单
           </button>
-          
+          <button onClick={openAudioInputPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
+            INPUT
+          </button>
+
           <div className="side-nav-bottom mt-auto flex flex-col items-center gap-10">
             <button 
               onClick={() => { loadDemo(); setIsMobileSideNavOpen(false); }}
@@ -2312,6 +2555,78 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         </div>
       )}
 
+      {showAudioInputPanel && (
+        <div className="absolute top-[40px] left-[100px] w-[420px] z-[67] pointer-events-auto backdrop-blur-[20px] border rounded-sm overflow-hidden" style={themedPanelStyle(accentHex, 0.86)}>
+          <div className="p-5 border-b" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-[12px] uppercase tracking-[0.2em] text-white/70">
+                <Volume2 size={15} />
+                Audio Input
+              </div>
+              <button onClick={() => setShowAudioInputPanel(false)} className="text-[10px] uppercase tracking-[0.15em] text-white/40 hover:text-white">Close</button>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={startSystemAudioInput}
+                className={`min-h-[74px] rounded-sm border px-3 py-3 text-left transition-colors ${audioInputMode === 'system' ? '' : 'border-white/10 text-white/55 hover:text-white hover:bg-white/5'}`}
+                style={audioInputMode === 'system' ? activeControlStyle(accentHex) : undefined}
+              >
+                <Volume2 size={16} className="mb-2" />
+                <div className="text-[11px] uppercase tracking-[0.14em]">System Audio</div>
+                <div className="mt-1 text-[10px] opacity-55">Windows loopback</div>
+              </button>
+              <button
+                onClick={() => startMicrophoneInput()}
+                className={`min-h-[74px] rounded-sm border px-3 py-3 text-left transition-colors ${audioInputMode === 'microphone' ? '' : 'border-white/10 text-white/55 hover:text-white hover:bg-white/5'}`}
+                style={audioInputMode === 'microphone' ? activeControlStyle(accentHex) : undefined}
+              >
+                <Mic size={16} className="mb-2" />
+                <div className="text-[11px] uppercase tracking-[0.14em]">Microphone</div>
+                <div className="mt-1 text-[10px] opacity-55">Input devices</div>
+              </button>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-[10px] uppercase tracking-[0.18em] text-white/45">Microphone Device</label>
+                <button onClick={refreshAudioInputDevices} className="text-[10px] uppercase tracking-[0.14em] text-white/40 hover:text-white">Refresh</button>
+              </div>
+              <select
+                value={selectedAudioInputId}
+                onChange={(event) => setSelectedAudioInputId(event.target.value)}
+                className="w-full rounded-sm border bg-black/30 px-3 py-2 text-[12px] text-white outline-none"
+                style={{ borderColor: colorWithAlpha(accentHex, 0.2) }}
+              >
+                {audioInputDevices.length > 0 ? audioInputDevices.map((device) => (
+                  <option key={device.id} value={device.id}>{device.label}</option>
+                )) : (
+                  <option value="">Allow microphone permission to show devices</option>
+                )}
+              </select>
+            </div>
+
+            {audioInputMode !== 'player' && (
+              <button
+                onClick={returnToPlayerInput}
+                className="w-full rounded-sm border px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/55 hover:text-white hover:bg-white/5"
+                style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}
+              >
+                Stop Input
+              </button>
+            )}
+
+            {audioInputStatus && (
+              <div className="rounded-sm border px-3 py-2 text-[11px] leading-relaxed text-white/55" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
+                {audioInputStatus}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showNeteasePanel && (
         <div className="absolute top-[40px] left-[100px] w-[460px] max-h-[76vh] z-[66] pointer-events-auto backdrop-blur-[20px] border rounded-sm overflow-hidden" style={themedPanelStyle(accentHex, 0.86)}>
           <div className="p-5 border-b" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
@@ -2582,6 +2897,18 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
 
 
+      {showUpdatePrompt && availableUpdate && (
+        <UpdatePromptModal
+          accentHex={accentHex}
+          update={availableUpdate}
+          updateStatus={updateStatus}
+          downloadJob={downloadJob}
+          onDownload={startUpdateDownload}
+          onRemindLater={remindUpdateLater}
+          onSkipVersion={skipThisUpdateVersion}
+        />
+      )}
+
       {/* Options Panel */}
       {showOptionsPanel && (
         <OptionsPanel
@@ -2606,7 +2933,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           onDesktopQQLogin={startDesktopQQLogin}
           updateStatus={updateStatus}
           isCheckingUpdate={isCheckingUpdate}
-          onCheckUpdate={checkForUpdate}
+          onCheckUpdate={() => checkForUpdate({ manual: true })}
           theme={theme}
           customThemes={customThemes}
           activeCustomThemeId={activeCustomThemeId}
@@ -4314,6 +4641,27 @@ function CustomColorPanel({
   );
 }
 
+function formatBytes(value: number | undefined) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let amount = bytes;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  const precision = unitIndex === 0 ? 0 : 1;
+  return `${amount.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function formatUpdatePublishedAt(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString();
+}
+
 function PlaybackQualityPanel({
   accentHex,
   settings,
@@ -4364,6 +4712,111 @@ function PlaybackQualityPanel({
               {option.label}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpdatePromptModal({
+  accentHex,
+  update,
+  updateStatus,
+  downloadJob,
+  onDownload,
+  onRemindLater,
+  onSkipVersion,
+}: {
+  accentHex: string;
+  update: AvailableUpdateInfo;
+  updateStatus: string;
+  downloadJob: UpdateDownloadJob | null;
+  onDownload: () => void | Promise<void>;
+  onRemindLater: () => void;
+  onSkipVersion: () => void;
+}) {
+  const isDownloading = downloadJob?.status === 'queued' || downloadJob?.status === 'downloading';
+  const total = Number(downloadJob?.total || 0);
+  const progress = downloadJob
+    ? (total > 0
+      ? `${formatBytes(downloadJob.received)} / ${formatBytes(total)}`
+      : `已下载 ${formatBytes(downloadJob.received)}`)
+    : '';
+  const notes = update.release?.notes?.trim() || '本次更新暂无详细说明。';
+  const publishedAt = formatUpdatePublishedAt(update.release?.publishedAt);
+
+  return (
+    <div
+      className="absolute inset-0 z-[140] pointer-events-auto flex items-center justify-center px-4 backdrop-blur-md"
+      style={{ background: 'rgba(0,0,0,0.42)' }}
+    >
+      <div
+        className="w-[560px] max-w-[94vw] max-h-[84vh] overflow-hidden rounded-[18px] border shadow-[0_32px_90px_rgba(0,0,0,0.45)]"
+        style={themedPanelStyle(accentHex, 0.92)}
+      >
+        <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">Application Update</div>
+            <div className="mt-2 text-[22px] font-semibold tracking-[0.02em] text-white">发现新版本</div>
+            <div className="mt-1 text-[12px] text-white/48">
+              当前版本 {update.currentVersion || '-'} {'->'} 最新版本 {update.latestVersion || '-'}
+            </div>
+          </div>
+          <button
+            onClick={onRemindLater}
+            disabled={isDownloading}
+            className="grid h-8 w-8 place-items-center rounded-full border border-white/10 text-white/45 hover:text-white disabled:opacity-40"
+            title="下次提醒"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="themed-scrollbar grid max-h-[54vh] gap-4 overflow-y-auto px-5 py-4">
+          <div className="rounded-[14px] border bg-white/[0.025] px-4 py-3" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
+            <div className="text-[13px] font-semibold text-white/85">{update.release?.name || `Sonic Topography ${update.latestVersion || ''}`}</div>
+            {publishedAt && <div className="mt-1 text-[11px] text-white/38">发布于 {publishedAt}</div>}
+          </div>
+
+          <div>
+            <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-white/50">更新内容</div>
+            <div className="max-h-[240px] overflow-y-auto whitespace-pre-wrap rounded-[14px] border bg-black/20 px-4 py-3 text-[12px] leading-relaxed text-white/68" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
+              {notes}
+            </div>
+          </div>
+
+          {(updateStatus || downloadJob) && (
+            <div className="rounded-[14px] border bg-white/[0.025] px-4 py-3 text-[12px] leading-relaxed text-white/58" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
+              <div>{updateStatus || '等待下载'}</div>
+              {downloadJob?.channelName && <div className="mt-1 text-white/42">下载通道：{downloadJob.channelName}</div>}
+              {downloadJob && <div className="mt-1 text-white/42">进度：{progress}</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t px-5 py-4" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
+          <button
+            onClick={onSkipVersion}
+            disabled={isDownloading}
+            className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/50 hover:text-white disabled:opacity-40"
+          >
+            不再提示这个版本
+          </button>
+          <button
+            onClick={onRemindLater}
+            disabled={isDownloading}
+            className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/60 hover:text-white disabled:opacity-40"
+          >
+            下次提醒
+          </button>
+          <button
+            onClick={onDownload}
+            disabled={isDownloading}
+            className="rounded-[10px] border px-4 py-2 text-[11px] font-semibold tracking-[0.08em] disabled:opacity-40"
+            style={primaryGhostStyle(accentHex)}
+          >
+            {isDownloading ? '下载中' : '立即更新'}
+          </button>
         </div>
       </div>
     </div>
