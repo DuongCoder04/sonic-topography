@@ -19,6 +19,7 @@ import {
 } from '../../lib/groundEqSettings';
 import { LyricsDisplay } from './LyricsDisplay';
 import { SplashScreen } from './SplashScreen';
+
 import {
   readDisplaySettingsStorage,
   writeDisplaySettingsStorage,
@@ -37,6 +38,7 @@ import {
   readQQCookieStorage,
   writeQQCookieStorage,
 } from '../../lib/qqCookie';
+import { useLanguage, setLanguage, t } from '../../lib/i18n';
 import {
   readTriggerSettingsStorage,
   writeTriggerSettingsStorage,
@@ -270,6 +272,7 @@ function songSourceLabel(song: NeteaseSong | null) {
 }
 
 function MarqueeTitle({ title }: { title: string }) {
+    const lang = useLanguage();
   return (
     <div className="player-panel-title-marquee" title={title}>
       <div className="player-panel-title-track" aria-hidden="true">
@@ -292,6 +295,7 @@ function CoverArt({
   className?: string;
   iconSize?: number;
 }) {
+    const lang = useLanguage();
   const baseClass = `shrink-0 overflow-hidden rounded-sm border border-white/10 bg-white/[0.04] ${className}`;
 
   if (src) {
@@ -431,6 +435,7 @@ function loadStoredTriggerSettings() {
 loadStoredTriggerSettings();
 
 export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, themeRotation, groundEqSettings, onThemeChange, onCustomThemesChange, onThemeRotationChange, onGroundEqSettingsChange, lyricsSettings, onLyricsSettingsChange, globalSceneSettings, onGlobalSceneSettingsChange, onCurrentSongChange, onCurrentLyricsChange, onLyricsVisibilityChange, onCoverVisibilityChange, isPerspectiveEditMode, onPerspectiveEditModeChange, onResetCamera }: UIProps) {
+  const lang = useLanguage();
   const currentStyleConfig = lyricsSettings[lyricsSettings.style] || (lyricsSettings as any)['songyancai'] || {
     activeFontSize: 32, inactiveFontSize: 18, fontColor: '#ffffff', glowColor: '#00ffff',
     followThemeGlow: true, karaokeColor: '#00ffff', followThemeKaraoke: true,
@@ -561,8 +566,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const effectiveSearchProvider: SearchProvider = hasBothCloudLogins
     ? searchProvider
     : (isQQCookieValid && !isNeteaseCookieValid ? 'qq' : 'netease');
-  const activeCloudLabel = cloudProvider === 'qq' ? 'QQ音乐' : '网易云';
-  const effectiveSearchLabel = effectiveSearchProvider === 'qq' ? 'QQ 音乐' : '网易云';
+  const activeCloudLabel = cloudProvider === 'qq' ? t('ui.text.1', lang) : t('ui.text.2', lang);
+  const effectiveSearchLabel = effectiveSearchProvider === 'qq' ? t('ui.text.3', lang) : t('ui.text.4', lang);
 
   const setSearchProvider = (provider: SearchProvider) => {
     setSearchProviderState(provider);
@@ -706,7 +711,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const syncNeteaseCookie = async (cookie: string, options: { silent?: boolean } = {}) => {
     const normalizedCookie = cookie.trim();
     if (normalizedCookie && !options.silent) {
-      setCookieStatus('正在校验 Cookie...');
+      setCookieStatus(t('ui.text.5', lang));
     }
 
     setIsSyncingNeteaseCookie(true);
@@ -720,7 +725,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       const valid = Boolean(data.valid);
       setIsNeteaseCookieValid(valid);
       if (!options.silent) {
-        setCookieStatus(normalizedCookie ? (valid ? 'Cookie 可用，已开启网易云' : 'Cookie 已保存，但校验失败') : 'Cookie 已清除');
+        setCookieStatus(normalizedCookie ? (valid ? t('ui.text.6', lang) : t('ui.text.7', lang)) : t('ui.text.8', lang));
       }
       if (normalizedCookie && !valid) {
         fetch('/api/netease/cookie', {
@@ -738,7 +743,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         setIsNeteaseCookieValid(false);
       }
       if (!options.silent) {
-        setCookieStatus('已保存到浏览器，但同步到本地代理失败');
+        setCookieStatus(t('ui.text.9', lang));
       }
       return options.silent && isNeteaseCookieValid;
     } finally {
@@ -748,7 +753,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const syncQQCookie = async (cookie: string, options: { silent?: boolean } = {}) => {
     const normalizedCookie = cookie.trim();
-    if (normalizedCookie && !options.silent) setQQCookieStatus('正在校验 QQ 音乐会话...');
+    if (normalizedCookie && !options.silent) setQQCookieStatus(t('ui.text.10', lang));
 
     setIsSyncingQQCookie(true);
     try {
@@ -761,14 +766,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       const valid = response.ok && Boolean(data.loggedIn);
       setIsQQCookieValid(valid);
       if (!options.silent) {
-        setQQCookieStatus(normalizedCookie ? (valid ? 'QQ 音乐已登录' : 'QQ 音乐会话无效') : 'QQ 音乐会话已清除');
+        setQQCookieStatus(normalizedCookie ? (valid ? t('ui.text.11', lang) : t('ui.text.12', lang)) : t('ui.text.13', lang));
       }
       return valid;
     } catch (error) {
       console.warn('Unable to sync QQ cookie:', error);
       if (!options.silent) {
         setIsQQCookieValid(false);
-        setQQCookieStatus('已保存到浏览器，但同步到本地代理失败');
+        setQQCookieStatus(t('ui.text.14', lang));
       }
       return options.silent && isQQCookieValid;
     } finally {
@@ -821,7 +826,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     writeQQCookieStorage('');
     setQQCookie('');
     setIsQQCookieValid(false);
-    setQQCookieStatus('QQ 音乐会话已清除');
+    setQQCookieStatus(t('ui.text.15', lang));
     await fetch('/api/qq/logout').catch((error) => {
       console.warn('Unable to clear QQ proxy cookie:', error);
     });
@@ -834,31 +839,31 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const startDesktopNeteaseLogin = async () => {
     if (!window.sonicDesktop?.isDesktop) return;
-    setDesktopLoginStatus('已打开网易云窗口，请在官方页面扫码登录...');
+    setDesktopLoginStatus(t('ui.text.16', lang));
     try {
       const result = await window.sonicDesktop.openNeteaseLogin();
       if (!result?.ok || !result.cookie) {
-        setDesktopLoginStatus(result?.message || result?.error || '网易云登录已取消');
+        setDesktopLoginStatus(result?.message || result?.error || t('ui.text.17', lang));
         return;
       }
       writeNeteaseCookieStorage(result.cookie);
       const normalizedCookie = readNeteaseCookieStorage();
       setNeteaseCookie(normalizedCookie);
       const valid = await syncNeteaseCookie(normalizedCookie);
-      setDesktopLoginStatus(valid ? '网易云账号已同步' : '网易云 Cookie 已获取，但校验失败');
+      setDesktopLoginStatus(valid ? t('ui.text.18', lang) : t('ui.text.19', lang));
     } catch (error) {
       console.warn('Unable to open Netease desktop login:', error);
-      setDesktopLoginStatus('网易云登录窗口打开失败');
+      setDesktopLoginStatus(t('ui.text.20', lang));
     }
   };
 
   const startDesktopQQLogin = async () => {
     if (!window.sonicDesktop?.isDesktop) return;
-    setDesktopLoginStatus('已打开 QQ 音乐窗口，请在官方页面扫码登录...');
+    setDesktopLoginStatus(t('ui.text.21', lang));
     try {
       const result = await window.sonicDesktop.openQQLogin();
       if (!result?.ok || !result.cookie) {
-        setDesktopLoginStatus(result?.message || result?.error || 'QQ 音乐登录已取消');
+        setDesktopLoginStatus(result?.message || result?.error || t('ui.text.22', lang));
         return;
       }
       writeQQCookieStorage(result.cookie);
@@ -867,11 +872,11 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       const valid = await syncQQCookie(normalizedCookie);
       const state = getQQCookieLoginState(normalizedCookie);
       setDesktopLoginStatus(valid
-        ? (state.playbackKeyReady ? 'QQ 音乐账号已同步' : 'QQ 音乐账号已同步，播放授权可能不完整')
-        : 'QQ 音乐 Cookie 已获取，但校验失败');
+        ? (state.playbackKeyReady ? t('ui.text.23', lang) : t('ui.text.24', lang))
+        : t('ui.text.25', lang));
     } catch (error) {
       console.warn('Unable to open QQ desktop login:', error);
-      setDesktopLoginStatus('QQ 音乐登录窗口打开失败');
+      setDesktopLoginStatus(t('ui.text.26', lang));
     }
   };
 
@@ -884,12 +889,12 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const checkForUpdate = async (options: { silent?: boolean; manual?: boolean } = {}) => {
     setIsCheckingUpdate(true);
-    if (!options.silent) setUpdateStatus('正在检查更新...');
+    if (!options.silent) setUpdateStatus(t('ui.text.27', lang));
     try {
       const response = await fetch('/api/update/latest');
       const data = await response.json();
       if (!data.configured) {
-        if (!options.silent) setUpdateStatus('更新源未配置。配置 GitHub owner/repo 后即可检查新版本。');
+        if (!options.silent) setUpdateStatus(t('ui.text.28', lang));
         return;
       }
       if (!data.updateAvailable) {
@@ -904,7 +909,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       }
     } catch (error) {
       console.warn('Unable to check updates:', error);
-      if (!options.silent) setUpdateStatus('检查更新失败');
+      if (!options.silent) setUpdateStatus(t('ui.text.29', lang));
     } finally {
       setIsCheckingUpdate(false);
     }
@@ -912,12 +917,12 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const startUpdateDownload = async () => {
     clearUpdatePollTimer();
-    setUpdateStatus('正在启动更新下载...');
+    setUpdateStatus(t('ui.text.30', lang));
     try {
       const downloadResponse = await fetch('/api/update/download', { method: 'POST' });
       const downloadData = await downloadResponse.json();
       if (!downloadData.ok || !downloadData.job?.id) {
-        setUpdateStatus(downloadData.error || '更新下载启动失败');
+        setUpdateStatus(downloadData.error || t('ui.text.31', lang));
         return;
       }
       setDownloadJob(downloadData.job);
@@ -927,34 +932,34 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           const statusData = await statusResponse.json();
           const job = statusData.job as UpdateDownloadJob | undefined;
           if (!job) {
-            setUpdateStatus('更新下载任务丢失');
+            setUpdateStatus(t('ui.text.32', lang));
             return;
           }
           setDownloadJob(job);
           if (job.status === 'ready') {
-            setUpdateStatus('安装包已下载，正在打开...');
+            setUpdateStatus(t('ui.text.33', lang));
             if (window.sonicDesktop?.isDesktop && job.filePath) await window.sonicDesktop.openUpdateInstaller(job.filePath);
             return;
           }
           if (job.status === 'failed') {
-            setUpdateStatus(job.error || '更新下载失败，可能是 GitHub 或镜像连接受限。');
+            setUpdateStatus(job.error || t('ui.text.34', lang));
             return;
           }
           const total = Number(job.total || 0);
           const progress = total > 0
             ? `${formatBytes(job.received)} / ${formatBytes(total)}`
             : `已下载 ${formatBytes(job.received)}`;
-          setUpdateStatus(`正在通过 ${job.channelName || '下载通道'} 下载... ${progress}`);
+          setUpdateStatus(`正在通过 ${job.channelName || t('ui.text.35', lang)} 下载... ${progress}`);
           updatePollTimerRef.current = window.setTimeout(poll, 1000);
         } catch (error) {
           console.warn('Unable to poll update download:', error);
-          setUpdateStatus('更新下载状态读取失败');
+          setUpdateStatus(t('ui.text.36', lang));
         }
       };
       poll();
     } catch (error) {
       console.warn('Unable to start update download:', error);
-      setUpdateStatus('更新下载启动失败');
+      setUpdateStatus(t('ui.text.37', lang));
     }
   };
 
@@ -1012,11 +1017,11 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       await syncNeteaseCookie('', { silent: true });
     }
 
-    setPresetTransferStatus('预设已导入，当前页面已更新');
+    setPresetTransferStatus(t('ui.text.38', lang));
   };
 
   const ensureCloudCookieReady = async (provider: CloudProvider = cloudProvider) => {
-    const label = provider === 'qq' ? 'QQ 音乐' : '网易云';
+    const label = provider === 'qq' ? t('ui.text.39', lang) : t('ui.text.40', lang);
     const savedCookie = provider === 'qq' ? readQQCookieStorage() : readNeteaseCookieStorage();
     if (!savedCookie.trim()) {
       if (provider === 'qq') setIsQQCookieValid(false);
@@ -1043,10 +1048,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const fetchNeteaseSongs = async (url: string, emptyMessage: string, provider: CloudProvider = cloudProvider) => {
     const readyCookie = await ensureCloudCookieReady(provider);
     if (!readyCookie) return;
-    const label = provider === 'qq' ? 'QQ音乐' : '网易云';
+    const label = provider === 'qq' ? t('ui.text.41', lang) : t('ui.text.42', lang);
 
     setIsLoadingNeteaseCloud(true);
-    setNeteaseCloudStatus('正在加载...');
+    setNeteaseCloudStatus(t('ui.text.43', lang));
 
     try {
       const response = await fetch(url, {
@@ -1077,7 +1082,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       if (typeof data.status === 'string') {
         setNeteaseCloudStatus(data.status);
       } else if (data.fallback) {
-        setNeteaseCloudStatus('已使用推荐内容');
+        setNeteaseCloudStatus(t('ui.text.44', lang));
       } else if (data.playlist || typeof data.loadedCount === 'number') {
         const totalCount = Number(data.totalCount || data.playlist?.trackCount || data.rawTrackCount || 0);
         setNeteaseCloudStatus(totalCount > 0 ? `已加载 ${songs.length} / ${totalCount} 首` : `已加载 ${songs.length} 首`);
@@ -1086,7 +1091,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       }
     } catch (error) {
       console.warn('Unable to load cloud songs:', error);
-      setNeteaseCloudStatus('加载失败，请稍后再试');
+      setNeteaseCloudStatus(t('ui.text.45', lang));
     } finally {
       setIsLoadingNeteaseCloud(false);
     }
@@ -1097,7 +1102,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setCloudProvider(provider);
     setNeteaseCloudTab('daily');
     setActiveNeteasePlaylistId(null);
-    await fetchNeteaseSongs('/api/netease/daily-recommend?limit=50', '每日推荐里暂时没有可播放歌曲', provider);
+    await fetchNeteaseSongs('/api/netease/daily-recommend?limit=50', t('ui.text.46', lang), provider);
   };
 
   const loadLikedSongs = async (provider: CloudProvider = cloudProvider) => {
@@ -1105,19 +1110,19 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setNeteaseCloudTab('liked');
     setActiveNeteasePlaylistId(null);
     if (provider === 'netease') {
-      await fetchNeteaseSongs('/api/netease/liked?limit=all', '喜欢列表里暂时没有可播放歌曲', provider);
+      await fetchNeteaseSongs('/api/netease/liked?limit=all', t('ui.text.47', lang), provider);
       return;
     }
     const readyCookie = await ensureCloudCookieReady('qq');
     if (!readyCookie) return;
     setIsLoadingNeteaseCloud(true);
-    setNeteaseCloudStatus('正在加载完整喜欢列表...');
+    setNeteaseCloudStatus(t('ui.text.48', lang));
     try {
       const response = await fetch('/api/qq/user/playlists', { headers: createQQCookieHeaders(readyCookie) });
       const data = await response.json();
       if (!response.ok) {
         setIsQQCookieValid(false);
-        setNeteaseCloudStatus('QQ 音乐账号失效了，请重新登录');
+        setNeteaseCloudStatus(t('ui.text.49', lang));
         openOptionsPanel();
         return;
       }
@@ -1126,14 +1131,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       const favorite = playlists.find((playlist: NeteasePlaylistSummary) => playlist.isFavorite) || playlists[0];
       if (!favorite) {
         setNeteaseCloudSongs([]);
-        setNeteaseCloudStatus('没有找到 QQ 音乐收藏歌单');
+        setNeteaseCloudStatus(t('ui.text.50', lang));
         return;
       }
       setActiveNeteasePlaylistId(favorite.id);
-      await fetchNeteaseSongs(`/api/qq/playlist/tracks?id=${encodeURIComponent(String(favorite.id))}&limit=all`, '喜欢列表里暂时没有可播放歌曲', provider);
+      await fetchNeteaseSongs(`/api/qq/playlist/tracks?id=${encodeURIComponent(String(favorite.id))}&limit=all`, t('ui.text.51', lang), provider);
     } catch (error) {
       console.warn('Unable to load QQ liked songs:', error);
-      setNeteaseCloudStatus('喜欢列表加载失败，请稍后再试');
+      setNeteaseCloudStatus(t('ui.text.52', lang));
     } finally {
       setIsLoadingNeteaseCloud(false);
     }
@@ -1146,10 +1151,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setActiveNeteasePlaylistId(null);
     const readyCookie = await ensureCloudCookieReady(provider);
     if (!readyCookie) return;
-    const label = provider === 'qq' ? 'QQ音乐' : '网易云';
+    const label = provider === 'qq' ? t('ui.text.53', lang) : t('ui.text.54', lang);
 
     setIsLoadingNeteaseCloud(true);
-    setNeteaseCloudStatus('正在加载完整歌单...');
+    setNeteaseCloudStatus(t('ui.text.55', lang));
 
     try {
       const response = await fetch(provider === 'qq' ? '/api/qq/user/playlists' : '/api/netease/playlists', {
@@ -1172,10 +1177,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       const cloudPlaylists = (Array.isArray(data.playlists) ? data.playlists : [])
         .filter((playlist: NeteasePlaylistSummary) => provider !== 'qq' || !playlist.isFavorite);
       setNeteaseCloudPlaylists(cloudPlaylists);
-      setNeteaseCloudStatus(cloudPlaylists.length ? '请选择一个歌单' : `没有找到${label}歌单`);
+      setNeteaseCloudStatus(cloudPlaylists.length ? t('ui.text.56', lang) : `没有找到${label}歌单`);
     } catch (error) {
       console.warn('Unable to load cloud playlists:', error);
-      setNeteaseCloudStatus('歌单加载失败，请稍后再试');
+      setNeteaseCloudStatus(t('ui.text.57', lang));
     } finally {
       setIsLoadingNeteaseCloud(false);
     }
@@ -1188,7 +1193,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     const url = provider === 'qq'
       ? `/api/qq/playlist/tracks?id=${encodeURIComponent(String(playlist.id))}&limit=all`
       : `/api/netease/playlist?id=${encodeURIComponent(String(playlist.id))}&limit=all`;
-    await fetchNeteaseSongs(url, '这个歌单里暂时没有可播放歌曲', provider);
+    await fetchNeteaseSongs(url, t('ui.text.58', lang), provider);
   };
 
   useEffect(() => {
@@ -1482,7 +1487,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     const requestQQCookie = provider === 'qq' && isQQCookieValid ? qqCookie : '';
 
     setIsSearching(true);
-    setSearchStatus(`正在搜索${provider === 'qq' ? 'QQ 音乐' : '网易云'}可播放歌曲...`);
+    setSearchStatus(`正在搜索${provider === 'qq' ? t('ui.text.59', lang) : t('ui.text.60', lang)}可播放歌曲...`);
     setSearchResults([]);
 
     try {
@@ -1506,13 +1511,13 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           ? `搜到 ${rawCount} 首，但未登录只能显示可播放歌曲；保存网易云 Cookie 后可能会显示更多。`
           : `搜到 ${rawCount} 首，但当前账号没有可播放版本，可能受版权、会员或地区限制。`)
         : (provider === 'qq'
-          ? 'QQ 音乐没有搜到歌曲，请换个关键词试试。'
+          ? t('ui.text.61', lang)
           : (requestCookie
             ? `搜到 ${rawCount} 首，但当前账号没有可播放版本，可能受版权、会员或地区限制。`
-            : '没有搜到歌曲；登录网易云或 QQ 音乐后可使用对应平台搜索。'))));
+            : t('ui.text.62', lang)))));
     } catch (error) {
       console.warn('Music search failed:', error);
-      setSearchStatus('搜索失败，请稍后再试');
+      setSearchStatus(t('ui.text.63', lang));
     } finally {
       setIsSearching(false);
     }
@@ -1527,7 +1532,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setCurrentCover(song.cover || '');
     setTrackName(`${song.artist ? `${song.artist} - ` : ''}${song.name}`);
     setLyricsText('');
-    setSearchStatus('正在加载歌曲...');
+    setSearchStatus(t('ui.text.64', lang));
     const provider = song.provider || 'netease';
     const requestCookie = provider === 'netease' && isNeteaseCookieValid ? neteaseCookie : '';
     const requestQQCookie = provider === 'qq' && isQQCookieValid ? qqCookie : '';
@@ -1553,7 +1558,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         setLyricsText(lyricData.lyric || lyricData.tlyric || lyricData.qrc || '');
 
         if (!urlData.url) {
-          setSearchStatus(urlData.message || 'QQ 音乐暂时没有可播放地址，正在尝试下一首...');
+          setSearchStatus(urlData.message || t('ui.text.65', lang));
           playFromQueue(1, songIdentity(song));
           return;
         }
@@ -1581,7 +1586,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       setLyricsText(lyric);
 
       if (!urlData.url) {
-        setSearchStatus('这首歌可能需要 Cookie、会员或地区权限，正在尝试下一首...');
+        setSearchStatus(t('ui.text.66', lang));
         playFromQueue(1, songIdentity(song));
         return;
       }
@@ -1593,7 +1598,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       setShowSearchPanel(false);
     } catch (error) {
       console.warn('Unable to load song:', error);
-      setSearchStatus('加载失败，正在尝试下一首...');
+      setSearchStatus(t('ui.text.67', lang));
       playFromQueue(1, songIdentity(song));
     }
   };
@@ -1700,8 +1705,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       if (exists) return playlist;
       return { ...playlist, songs: [...playlist.songs, song] };
     }));
-    setSearchStatus('已加入喜欢');
-    setNeteaseCloudStatus('已加入喜欢');
+    setSearchStatus(t('ui.text.68', lang));
+    setNeteaseCloudStatus(t('ui.text.69', lang));
   };
 
   const createPlaylistAndAddSong = () => {
@@ -1887,21 +1892,18 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       {isPerspectiveEditMode && (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3">
           <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white font-medium text-sm tracking-widest shadow-2xl animate-in fade-in slide-in-from-top-4 pointer-events-auto">
-            正在编辑视角 (右键拖拽或双指滑动以平移视角)
-          </div>
+            {t('ui.text.70', lang)}</div>
           <div className="flex gap-4 pointer-events-auto">
             <button
               onClick={() => onPerspectiveEditModeChange?.(false)}
               className="px-8 py-2.5 bg-white text-black font-bold text-sm tracking-widest rounded-full hover:bg-white/90 transition-colors cursor-pointer"
             >
-              确定
-            </button>
+              {t('ui.text.71', lang)}</button>
             <button
               onClick={() => onResetCamera?.()}
               className="px-8 py-2.5 bg-black/40 text-white font-bold text-sm tracking-widest rounded-full border border-white/20 hover:bg-black/60 transition-colors cursor-pointer"
             >
-              重置
-            </button>
+              {t('ui.text.72', lang)}</button>
           </div>
         </div>
       )}
@@ -1936,11 +1938,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       {!hasSeenSideNavHint && !isMobileSideNavOpen && (
         <div className="absolute top-[88px] left-[56px] z-40 pointer-events-none select-none">
           <div className="text-[14px] sm:text-[15px] leading-7 tracking-[0.18em]" style={{ color: uiMutedColor }}>
-            点击左上角 设置图标 打开侧边栏
+            {t('nav.hint', lang)}
           </div>
           <div className="text-[12px] sm:text-[13px] leading-6 tracking-[0.16em]" style={{ color: uiFaintColor }}>
-            或将鼠标滑到左侧打开侧边栏
-          </div>
+            {t('ui.text.73', lang)}</div>
         </div>
       )}
       
@@ -1964,12 +1965,12 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
             boxShadow: `16px 0 50px rgba(0,0,0,${isLightSurface ? 0.18 : 0.2}), inset -1px 0 0 ${colorWithAlpha(accentHex, isLightSurface ? 0.14 : 0.08)}`,
           }}
         >
-          <button onClick={closeFloatingPanels} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-100 transition-opacity cursor-pointer" style={{ writingMode: 'vertical-rl', color: sideNavActiveColor }}>可视化</button>
+          <button onClick={closeFloatingPanels} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-100 transition-opacity cursor-pointer" style={{ writingMode: 'vertical-rl', color: sideNavActiveColor }}>{t('nav.visualize', lang)}</button>
           <button onClick={openOptionsPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
-            设置
+            {t('nav.settings', lang)}
           </button>
           <button onClick={openSearchPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
-            搜索
+            {t('nav.search', lang)}
           </button>
           {isNeteaseCookieValid && (
             <button
@@ -1977,7 +1978,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
               className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2"
               style={{ writingMode: 'vertical-rl' }}
             >
-              网易云
+              {t('nav.netease', lang)}
             </button>
           )}
           {isQQCookieValid && (
@@ -1986,14 +1987,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
               className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2"
               style={{ writingMode: 'vertical-rl' }}
             >
-              QQ音乐
+              {t('nav.qqmusic', lang)}
             </button>
           )}
           <button onClick={openPlaylistPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
-            歌单
+            {t('nav.playlist', lang)}
           </button>
           <button onClick={openAudioInputPanel} className="uppercase tracking-[0.2em] text-[10px] mb-12 opacity-40 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2" style={{ writingMode: 'vertical-rl' }}>
-            INPUT
+            {t('nav.input', lang)}
           </button>
 
           <div className="side-nav-bottom mt-auto flex flex-col items-center gap-10">
@@ -2002,29 +2003,38 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
               className="uppercase tracking-[0.2em] text-[10px] opacity-40 hover:opacity-100 transition-opacity cursor-pointer font-bold"
               style={{ writingMode: 'vertical-rl' }}
             >
-              示例
+              {t('nav.example', lang)}
             </button>
             <button 
               onClick={() => { fileInputRef.current?.click(); setIsMobileSideNavOpen(false); }}
               className="uppercase tracking-[0.2em] text-[10px] opacity-40 hover:opacity-100 transition-opacity cursor-pointer"
               style={{ writingMode: 'vertical-rl' }}
             >
-              上传
+              {t('nav.upload', lang)}
             </button>
             <button
               onClick={() => { onPerspectiveEditModeChange?.(true); setIsMobileSideNavOpen(false); }}
               className={`uppercase tracking-[0.2em] text-[10px] transition-opacity cursor-pointer ${isPerspectiveEditMode ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
               style={{ writingMode: 'vertical-rl' }}
             >
-              视角
+              {t('nav.perspective', lang)}
             </button>
             <button
               onClick={toggleFullscreen}
               className={`uppercase tracking-[0.2em] text-[10px] transition-opacity cursor-pointer ${isFullscreen ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
               style={{ writingMode: 'vertical-rl' }}
             >
-              {isFullscreen ? '退出' : '全屏'}
+              {isFullscreen ? t('nav.exit_fullscreen', lang) : t('nav.fullscreen', lang)}
             </button>
+            
+            <button
+              onClick={() => setLanguage(lang === 'zh' ? 'en' : 'zh')}
+              className="uppercase tracking-[0.2em] text-[10px] opacity-40 hover:opacity-100 transition-opacity cursor-pointer mt-4 font-bold"
+              style={{ writingMode: 'vertical-rl', color: sideNavActiveColor }}
+            >
+              {t('nav.lang_toggle', lang)}
+            </button>
+
             <div className="font-black text-[14px] tracking-[-1px] opacity-40 mt-4 pointer-events-none select-none">
               AJIN.
             </div>
@@ -2114,7 +2124,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                      className={`w-full flex items-center gap-3 px-5 py-3 hover:bg-white/5 transition-colors text-left ${activeRightSidebarSelection.type === 'netease_daily' ? 'bg-white/5' : ''}`}
                    >
                      <div className="w-8 h-8 rounded shrink-0 bg-white/10 flex items-center justify-center overflow-hidden text-white/40"><ListMusic size={14} /></div>
-                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'netease_daily' ? 'text-white' : 'text-white/70'}`}>每日推荐</div></div>
+                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'netease_daily' ? 'text-white' : 'text-white/70'}`}>{t('ui.text.74', lang)}</div></div>
                    </button>
                    <button 
                      onClick={() => {
@@ -2124,7 +2134,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                      className={`w-full flex items-center gap-3 px-5 py-3 hover:bg-white/5 transition-colors text-left ${activeRightSidebarSelection.type === 'netease_liked' ? 'bg-white/5' : ''}`}
                    >
                      <div className="w-8 h-8 rounded shrink-0 bg-white/10 flex items-center justify-center overflow-hidden text-white/40"><ListMusic size={14} /></div>
-                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'netease_liked' ? 'text-white' : 'text-white/70'}`}>我喜欢的音乐</div></div>
+                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'netease_liked' ? 'text-white' : 'text-white/70'}`}>{t('ui.text.75', lang)}</div></div>
                    </button>
                     {(() => {
                       const sorted = [...fetchedNeteasePlaylists].sort((a, b) => {
@@ -2165,7 +2175,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                                     }
                                   }}
                                   className={`shrink-0 p-1 rounded hover:bg-white/10 transition-colors ${isPinned ? 'opacity-100 text-cyan-400' : 'opacity-0 group-hover:opacity-100 text-white/40 hover:text-white'}`}
-                                  title={isPinned ? "取消置顶" : "置顶"}
+                                  title={isPinned ? t('ui.text.76', lang) : t('ui.text.77', lang)}
                                 >
                                   <Pin size={14} className={isPinned ? "fill-cyan-400/20" : ""} />
                                 </div>
@@ -2178,9 +2188,9 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                               className="w-full flex items-center justify-center gap-2 px-5 py-3 text-[10px] uppercase tracking-[0.1em] text-white/40 hover:text-white hover:bg-white/5 transition-colors"
                             >
                               {showAllNetease ? (
-                                <><ChevronUp size={14} /> 收起</>
+                                <><ChevronUp size={14} /> {t('ui.text.78', lang)}</>
                               ) : (
-                                <><ChevronDown size={14} /> 展开全部歌单 ({sorted.length})</>
+                                <><ChevronDown size={14} /> {t('ui.text.79', lang)}{sorted.length})</>
                               )}
                             </button>
                           )}
@@ -2202,7 +2212,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                      className={`w-full flex items-center gap-3 px-5 py-3 hover:bg-white/5 transition-colors text-left ${activeRightSidebarSelection.type === 'qq_liked' ? 'bg-white/5' : ''}`}
                    >
                      <div className="w-8 h-8 rounded shrink-0 bg-white/10 flex items-center justify-center overflow-hidden text-white/40"><ListMusic size={14} /></div>
-                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'qq_liked' ? 'text-white' : 'text-white/70'}`}>我喜欢的音乐</div></div>
+                     <div className="min-w-0 flex-1"><div className={`text-[12px] truncate ${activeRightSidebarSelection.type === 'qq_liked' ? 'text-white' : 'text-white/70'}`}>{t('ui.text.80', lang)}</div></div>
                    </button>
                     {(() => {
                       const sorted = [...fetchedQQPlaylists].sort((a, b) => {
@@ -2243,7 +2253,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                                     }
                                   }}
                                   className={`shrink-0 p-1 rounded hover:bg-white/10 transition-colors ${isPinned ? 'opacity-100 text-cyan-400' : 'opacity-0 group-hover:opacity-100 text-white/40 hover:text-white'}`}
-                                  title={isPinned ? "取消置顶" : "置顶"}
+                                  title={isPinned ? t('ui.text.81', lang) : t('ui.text.82', lang)}
                                 >
                                   <Pin size={14} className={isPinned ? "fill-cyan-400/20" : ""} />
                                 </div>
@@ -2256,9 +2266,9 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                               className="w-full flex items-center justify-center gap-2 px-5 py-3 text-[10px] uppercase tracking-[0.1em] text-white/40 hover:text-white hover:bg-white/5 transition-colors"
                             >
                               {showAllQQ ? (
-                                <><ChevronUp size={14} /> 收起</>
+                                <><ChevronUp size={14} /> {t('ui.text.83', lang)}</>
                               ) : (
-                                <><ChevronDown size={14} /> 展开全部歌单 ({sorted.length})</>
+                                <><ChevronDown size={14} /> {t('ui.text.84', lang)}{sorted.length})</>
                               )}
                             </button>
                           )}
@@ -2322,7 +2332,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         <button
           type="button"
           className={`brand-mark absolute top-[88px] left-[56px] z-50 pointer-events-auto cursor-pointer transition-opacity hover:opacity-100 ${isMobileSideNavOpen ? 'opacity-100' : 'opacity-40'}`}
-          aria-label={isMobileSideNavOpen ? '关闭侧边栏' : '打开侧边栏'}
+          aria-label={isMobileSideNavOpen ? t('ui.text.85', lang) : t('ui.text.86', lang)}
           aria-expanded={isMobileSideNavOpen}
           onClick={() => {
             if (isMobileSideNavOpen) {
@@ -2347,13 +2357,13 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
             </div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-[11px] text-white/38">
-                当前搜索：{effectiveSearchLabel}
+                {t('ui.text.87', lang)}{effectiveSearchLabel}
               </div>
               {hasBothCloudLogins && (
                 <div className="grid grid-cols-2 rounded-sm border bg-white/[0.025] p-0.5" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
                   {[
-                    { id: 'netease' as const, label: '网易云' },
-                    { id: 'qq' as const, label: 'QQ音乐' },
+                    { id: 'netease' as const, label: t('ui.text.88', lang) },
+                    { id: 'qq' as const, label: t('ui.text.89', lang) },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -2404,7 +2414,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                 <div className="min-w-0 flex-1">
                   <div className={`text-[13px] truncate ${currentSongId === songIdentity(song) ? 'text-white' : 'text-white/80'}`}>{song.name}</div>
                   <div className="mt-1 text-[11px] text-white/45 truncate">
-                    {(song.provider === 'qq' ? 'QQ 音乐' : '网易云')} · {song.artist || 'Unknown artist'} - {song.album || 'Unknown album'}
+                    {(song.provider === 'qq' ? t('ui.text.90', lang) : t('ui.text.91', lang))} · {song.artist || 'Unknown artist'} - {song.album || 'Unknown album'}
                   </div>
                 </div>
                 <span
@@ -2632,7 +2642,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           <div className="p-5 border-b" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
             <div className="flex items-center justify-between mb-4">
               <div className="text-[12px] uppercase tracking-[0.2em] text-white/70">{activeCloudLabel}</div>
-              <button onClick={() => setShowNeteasePanel(false)} className="text-[10px] uppercase tracking-[0.15em] text-white/40 hover:text-white">关闭</button>
+              <button onClick={() => setShowNeteasePanel(false)} className="text-[10px] uppercase tracking-[0.15em] text-white/40 hover:text-white">{t('ui.text.92', lang)}</button>
             </div>
             <div className="flex gap-2">
               <button
@@ -2640,23 +2650,20 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                 className={`px-3 py-2 rounded-sm border text-[10px] uppercase tracking-[0.12em] transition-colors ${neteaseCloudTab === 'liked' ? '' : 'text-white/45 border-white/10 hover:text-white'}`}
                 style={neteaseCloudTab === 'liked' ? activeControlStyle(accentHex) : undefined}
               >
-                喜欢
-              </button>
+                {t('ui.text.93', lang)}</button>
               <button
                 onClick={() => loadNeteasePlaylists()}
                 className={`px-3 py-2 rounded-sm border text-[10px] uppercase tracking-[0.12em] transition-colors ${neteaseCloudTab === 'playlists' ? '' : 'text-white/45 border-white/10 hover:text-white'}`}
                 style={neteaseCloudTab === 'playlists' ? activeControlStyle(accentHex) : undefined}
               >
-                歌单
-              </button>
+                {t('ui.text.94', lang)}</button>
               {cloudProvider === 'netease' && (
                 <button
                   onClick={() => loadDailyRecommendations()}
                   className={`px-3 py-2 rounded-sm border text-[10px] uppercase tracking-[0.12em] transition-colors ${neteaseCloudTab === 'daily' ? '' : 'text-white/45 border-white/10 hover:text-white'}`}
                   style={neteaseCloudTab === 'daily' ? activeControlStyle(accentHex) : undefined}
                 >
-                  每日推荐
-                </button>
+                  {t('ui.text.95', lang)}</button>
               )}
             </div>
           </div>
@@ -2673,7 +2680,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                   <span className="text-[10px] text-white/35">{playlist.trackCount}</span>
                 </button>
               )) : (
-                <div className="px-3 py-4 text-[12px] text-white/40">{isLoadingNeteaseCloud ? '正在加载歌单...' : `点击“歌单”加载你的${activeCloudLabel}歌单`}</div>
+                <div className="px-3 py-4 text-[12px] text-white/40">{isLoadingNeteaseCloud ? t('ui.text.96', lang) : `点击“歌单”加载你的${activeCloudLabel}歌单`}</div>
               )}
             </div>
           )}
@@ -2685,7 +2692,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
             queue={neteaseCloudSongs}
             onPlay={loadNeteaseSong}
             onFavorite={addSongToFavorites}
-            emptyText={isLoadingNeteaseCloud ? '正在加载...' : '这里会显示可播放歌曲'}
+            emptyText={isLoadingNeteaseCloud ? t('ui.text.97', lang) : t('ui.text.98', lang)}
             accentHex={accentHex}
           />
         </div>
@@ -2834,11 +2841,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
             <button
               onClick={() => setDisplaySettings(s => ({ ...s, showLyrics: !s.showLyrics }))}
               className="text-[13px] font-bold hover:text-white transition-colors w-4 flex items-center justify-center"
-              title={displaySettings.showLyrics ? '隐藏歌词' : '显示歌词'}
+              title={displaySettings.showLyrics ? t('ui.text.99', lang) : t('ui.text.100', lang)}
               style={{ color: displaySettings.showLyrics ? accentHex : undefined }}
             >
-              词
-            </button>
+              {t('ui.text.101', lang)}</button>
             <button 
               onClick={() => {
                 const keys = Object.keys(themes);
@@ -2848,7 +2854,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                 onThemeChange(themeKeys[nextIndex]);
               }}
               className="hover:text-white transition-colors"
-              title="切换主题"
+              title={t('ui.text.102', lang)}
             >
               <Palette size={16} />
             </button>
@@ -2964,6 +2970,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 import { TriggerPreset } from '../../lib/AudioEngine';
 
 function DesktopTitleDragRegion() {
+    const lang = useLanguage();
   const isDraggingWindow = useRef(false);
   const dragFrame = useRef<number | null>(null);
 
@@ -3023,6 +3030,7 @@ function DesktopTitleDragRegion() {
 }
 
 function DesktopWindowControls() {
+    const lang = useLanguage();
   if (!window.sonicDesktop?.isDesktop) return null;
 
   return (
@@ -3032,7 +3040,7 @@ function DesktopWindowControls() {
           type="button"
           onClick={() => window.sonicDesktop?.minimize()}
           className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-black/35 text-white/55 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md hover:text-white"
-          title="最小化"
+          title={t('ui.text.103', lang)}
         >
           <Minus size={14} />
         </button>
@@ -3040,7 +3048,7 @@ function DesktopWindowControls() {
           type="button"
           onClick={() => window.sonicDesktop?.toggleMaximize()}
           className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-black/35 text-white/55 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md hover:text-white"
-          title="最大化"
+          title={t('ui.text.104', lang)}
         >
           <Square size={12} />
         </button>
@@ -3048,7 +3056,7 @@ function DesktopWindowControls() {
           type="button"
           onClick={() => window.sonicDesktop?.close()}
           className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-black/35 text-white/55 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md hover:border-[#ef4444]/50 hover:text-[#ef4444]"
-          title="关闭"
+          title={t('ui.text.105', lang)}
         >
           <X size={14} />
         </button>
@@ -3074,6 +3082,7 @@ function NeteaseSongList({
   emptyText: string;
   accentHex: string;
 }) {
+    const lang = useLanguage();
   return (
     <div className="themed-scrollbar max-h-[44vh] overflow-y-auto">
       {songs.length > 0 ? songs.map((song) => (
@@ -3085,7 +3094,7 @@ function NeteaseSongList({
           <CoverArt src={song.cover} title={song.name} className="h-10 w-10" iconSize={15} />
           <div className="min-w-0 flex-1">
             <div className={`text-[13px] truncate ${currentSongId === songIdentity(song) ? 'text-white' : 'text-white/80'}`}>{song.name}</div>
-            <div className="mt-1 text-[11px] text-white/45 truncate">{song.artist || '未知歌手'} - {song.album || '未知专辑'}</div>
+            <div className="mt-1 text-[11px] text-white/45 truncate">{song.artist || t('ui.text.106', lang)} - {song.album || t('ui.text.107', lang)}</div>
           </div>
           <span
             role="button"
@@ -3103,7 +3112,7 @@ function NeteaseSongList({
             }}
             className="absolute right-5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-sm border text-white/55 hover:text-white transition-colors flex items-center justify-center"
             style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}
-            title="加入喜欢"
+            title={t('ui.text.108', lang)}
           >
             <Plus size={15} />
           </span>
@@ -3202,18 +3211,19 @@ function OptionsPanel({
   globalSceneSettings: { rotationSpeed: number };
   onGlobalSceneSettingsChange: (patch: { rotationSpeed?: number }) => void;
 }) {
+    const lang = useLanguage();
   const [activeTab, setActiveTab] = useState<OptionsTab>('Meteor');
   const [includeCookieInExport, setIncludeCookieInExport] = useState(false);
   const importPresetInputRef = useRef<HTMLInputElement>(null);
   const tabs: OptionsTab[] = ['Pulse', 'Meteor', 'FloatingBlocks', 'GroundEq', 'Color', 'Audio', 'Account', 'Lyrics', 'Display'];
   const tabLabels: Partial<Record<OptionsTab, string>> = {
-    Pulse: '脉冲特效',
-    Meteor: '流星特效',
-    GroundEq: '地面 EQ',
-    Color: '自定义主题',
-    Account: '账号登录',
-    Lyrics: '歌词',
-    Display: '显示/快捷键',
+    Pulse: t('ui.text.109', lang),
+    Meteor: t('ui.text.110', lang),
+    GroundEq: t('ui.text.111', lang),
+    Color: t('ui.text.112', lang),
+    Account: t('ui.text.113', lang),
+    Lyrics: t('ui.text.114', lang),
+    Display: t('ui.text.115', lang),
   };
 
   const currentStyleConfig = lyricsSettings[lyricsSettings.style] || (lyricsSettings as any)['songyancai'] || {
@@ -3236,10 +3246,10 @@ function OptionsPanel({
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setPresetTransferStatus(includeCookieInExport ? '预设已导出，包含 Cookie' : '预设已导出，未包含 Cookie');
+      setPresetTransferStatus(includeCookieInExport ? t('ui.text.116', lang) : t('ui.text.117', lang));
     } catch (error) {
       console.warn('Unable to export presets:', error);
-      setPresetTransferStatus('导出失败，请稍后重试');
+      setPresetTransferStatus(t('ui.text.118', lang));
     }
   };
 
@@ -3247,13 +3257,13 @@ function OptionsPanel({
     if (!file) return;
 
     try {
-      setPresetTransferStatus('正在导入预设...');
+      setPresetTransferStatus(t('ui.text.119', lang));
       const text = await file.text();
       const parsed = JSON.parse(text);
       await onImportPresetPackage(normalizePresetTransferPackage(parsed));
     } catch (error) {
       console.warn('Unable to import presets:', error);
-      setPresetTransferStatus(error instanceof Error ? error.message : '导入失败，请选择正确的预设文件');
+      setPresetTransferStatus(error instanceof Error ? error.message : t('ui.text.120', lang));
     } finally {
       if (importPresetInputRef.current) importPresetInputRef.current.value = '';
     }
@@ -3267,17 +3277,17 @@ function OptionsPanel({
        >
           <div className="flex justify-between items-center mb-6">
              <div>
-               <div className="text-xl font-light tracking-widest text-white">设置</div>
-               <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-white/35">视觉触发器、颜色、账号与更新</div>
+               <div className="text-xl font-light tracking-widest text-white">{t('ui.text.121', lang)}</div>
+               <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-white/35">{t('ui.text.122', lang)}</div>
              </div>
-             <button onClick={onClose} className="text-white/50 hover:text-white uppercase tracking-widest text-[10px]">关闭</button>
+             <button onClick={onClose} className="text-white/50 hover:text-white uppercase tracking-widest text-[10px]">{t('ui.text.123', lang)}</button>
           </div>
 
           <div className="mb-6 rounded-sm border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[12px] uppercase tracking-[0.18em] text-white/70">预设迁移</div>
-                <div className="mt-2 text-[11px] leading-relaxed text-white/45">一键导出或导入歌单、特效、地面 EQ、自定义主题和浏览器设置。</div>
+                <div className="text-[12px] uppercase tracking-[0.18em] text-white/70">{t('ui.text.124', lang)}</div>
+                <div className="mt-2 text-[11px] leading-relaxed text-white/45">{t('ui.text.125', lang)}</div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-2 rounded-sm border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-white/50">
@@ -3288,23 +3298,20 @@ function OptionsPanel({
                     className="h-3.5 w-3.5"
                     style={{ accentColor: accentHex }}
                   />
-                  包含 Cookie
-                </label>
+                  {t('ui.text.126', lang)}</label>
                 <button
                   type="button"
                   onClick={exportPreset}
                   className="px-3 py-2 rounded-sm border text-[10px] uppercase tracking-[0.15em]"
                   style={primaryGhostStyle(accentHex)}
                 >
-                  导出预设
-                </button>
+                  {t('ui.text.127', lang)}</button>
                 <button
                   type="button"
                   onClick={() => importPresetInputRef.current?.click()}
                   className="px-3 py-2 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/55 hover:text-white transition-colors"
                 >
-                  导入预设
-                </button>
+                  {t('ui.text.128', lang)}</button>
                 <input
                   ref={importPresetInputRef}
                   type="file"
@@ -3327,7 +3334,7 @@ function OptionsPanel({
                   }`}
                   style={activeTab === tab ? activeControlStyle(accentHex) : undefined}
                >
-                  {tab === 'Audio' ? '播放音质' : (tabLabels[tab] || '浮空方块')}
+                  {tab === 'Audio' ? t('ui.text.129', lang) : (tabLabels[tab] || t('ui.text.130', lang))}
                </button>
             ))}
           </div>
@@ -3389,29 +3396,26 @@ function OptionsPanel({
             <div className="flex flex-col gap-6">
               <div className="bg-white/[0.02] border border-white/5 rounded-sm p-4 flex flex-col gap-5">
                 <div>
-                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">歌词形态</div>
+                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.131', lang)}</div>
                   <div className="flex gap-2">
                      <button
                         className="px-4 py-2 text-[11px] uppercase tracking-widest rounded-sm border transition-colors"
                         style={lyricsSettings.style === 'songyancai' ? activeControlStyle(accentHex) : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}
                         onClick={() => onLyricsSettingsChange({ ...lyricsSettings, style: 'songyancai' })}
                      >
-                        宋延彩 (默认)
-                     </button>
+                        {t('ui.text.132', lang)}</button>
                      <button
                         className="px-4 py-2 text-[11px] uppercase tracking-widest rounded-sm border transition-colors"
                         style={lyricsSettings.style === 'dynamic-bounce' ? activeControlStyle(accentHex) : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}
                         onClick={() => onLyricsSettingsChange({ ...lyricsSettings, style: 'dynamic-bounce' })}
                      >
-                        动感跳跃
-                     </button>
+                        {t('ui.text.133', lang)}</button>
                      <button
                         className="px-4 py-2 text-[11px] uppercase tracking-widest rounded-sm border transition-colors"
                         style={lyricsSettings.style === 'spatial-wall' ? activeControlStyle(accentHex) : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}
                         onClick={() => onLyricsSettingsChange({ ...lyricsSettings, style: 'spatial-wall' })}
                      >
-                        3D 环绕
-                     </button>
+                        {t('ui.text.134', lang)}</button>
                   </div>
                 </div>
 
@@ -3420,45 +3424,45 @@ function OptionsPanel({
                       <div className="h-[1px] bg-white/5 w-full"></div>
                       <div className="grid grid-cols-2 gap-8">
                         <div>
-                           <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">屏幕固定位置</div>
+                           <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.135', lang)}</div>
                            <select
                              className="w-full bg-black/40 border border-white/10 rounded-sm text-[12px] px-3 py-2 outline-none focus:border-white/30 text-white/80"
                              value={currentStyleConfig.position}
                              onChange={(e) => updateConfig({ position: e.target.value as any })}
                            >
-                             <option value="top-left">左上 (Top Left)</option>
-                             <option value="top-center">中上 (Top Center)</option>
-                             <option value="top-right">右上 (Top Right)</option>
-                             <option value="center-left">左中 (Center Left)</option>
-                             <option value="center">正中间 (Center)</option>
-                             <option value="center-right">右中 (Center Right)</option>
-                             <option value="bottom-left">左下 (Bottom Left)</option>
-                             <option value="bottom-center">中下 (Bottom Center)</option>
-                             <option value="bottom-right">右下 (Bottom Right)</option>
+                             <option value="top-left">{t('ui.text.136', lang)}</option>
+                             <option value="top-center">{t('ui.text.137', lang)}</option>
+                             <option value="top-right">{t('ui.text.138', lang)}</option>
+                             <option value="center-left">{t('ui.text.139', lang)}</option>
+                             <option value="center">{t('ui.text.140', lang)}</option>
+                             <option value="center-right">{t('ui.text.141', lang)}</option>
+                             <option value="bottom-left">{t('ui.text.142', lang)}</option>
+                             <option value="bottom-center">{t('ui.text.143', lang)}</option>
+                             <option value="bottom-right">{t('ui.text.144', lang)}</option>
                            </select>
                         </div>
                         <div>
-                           <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">跳动跟随频段 (EQ)</div>
+                           <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.145', lang)}</div>
                            <select
                              className="w-full bg-black/40 border border-white/10 rounded-sm text-[12px] px-3 py-2 outline-none focus:border-white/30 text-white/80"
                              value={currentStyleConfig.triggerBand}
                              onChange={(e) => updateConfig({ triggerBand: e.target.value as any })}
                            >
-                             <option value="subBass">中心抬升 (SUB BASS)</option>
-                             <option value="bass">低频重量 (BASS)</option>
-                             <option value="lowMid">慢波流动 (LOW MID)</option>
-                             <option value="mid">方向流 (MID)</option>
-                             <option value="highMid">尖峰 (HIGH MID)</option>
-                             <option value="presence">闪光触发 (PRESENCE)</option>
-                             <option value="brilliance">边缘微闪 (BRILLIANCE)</option>
-                             <option value="air">空气颗粒 (AIR)</option>
+                             <option value="subBass">{t('ui.text.146', lang)}</option>
+                             <option value="bass">{t('ui.text.147', lang)}</option>
+                             <option value="lowMid">{t('ui.text.148', lang)}</option>
+                             <option value="mid">{t('ui.text.149', lang)}</option>
+                             <option value="highMid">{t('ui.text.150', lang)}</option>
+                             <option value="presence">{t('ui.text.151', lang)}</option>
+                             <option value="brilliance">{t('ui.text.152', lang)}</option>
+                             <option value="air">{t('ui.text.153', lang)}</option>
                            </select>
                         </div>
                       </div>
                       {lyricsSettings.style === 'spatial-wall' && (
                         <div>
                           <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3 flex justify-between">
-                             <span>左右环绕位置</span>
+                             <span>{t('ui.text.154', lang)}</span>
                              <span className="text-white/40">{currentStyleConfig.spatialOrbitOffset}°</span>
                           </div>
                           <input
@@ -3479,7 +3483,7 @@ function OptionsPanel({
 
                 <div>
                   <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3 flex justify-between">
-                     <span>活跃歌词大小</span>
+                     <span>{t('ui.text.155', lang)}</span>
                      <span className="text-white/40">{currentStyleConfig.activeFontSize}px</span>
                   </div>
                   <input
@@ -3495,8 +3499,8 @@ function OptionsPanel({
 
                 <div>
                   <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3 flex justify-between">
-                     <span>每行歌词容量</span>
-                     <span className="text-white/40">{currentStyleConfig.maxCharsPerLine} 字</span>
+                     <span>{t('ui.text.156', lang)}</span>
+                     <span className="text-white/40">{currentStyleConfig.maxCharsPerLine} {t('ui.text.157', lang)}</span>
                   </div>
                   <input
                     type="range"
@@ -3513,7 +3517,7 @@ function OptionsPanel({
 
                 <div className="grid grid-cols-3 gap-8">
                    <div>
-                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">字体颜色</div>
+                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.158', lang)}</div>
                       <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8 rounded-full border-[2px] overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
                           <input 
@@ -3528,7 +3532,7 @@ function OptionsPanel({
                    </div>
                    
                    <div>
-                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">变色 (K歌)</div>
+                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.159', lang)}</div>
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-3">
                           <div className="relative w-8 h-8 rounded-full border-[2px] overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.2)', opacity: currentStyleConfig.followThemeKaraoke ? 0.3 : 1 }}>
@@ -3549,13 +3553,12 @@ function OptionsPanel({
                               className="w-3 h-3"
                               style={{ accentColor: accentHex }}
                            />
-                           跟随主题
-                        </label>
+                           {t('ui.text.160', lang)}</label>
                       </div>
                    </div>
 
                    <div>
-                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">炫光颜色</div>
+                      <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.161', lang)}</div>
                       <div className="flex items-center gap-4">
                         <div className="relative w-8 h-8 rounded-full border-[2px] overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.2)', opacity: currentStyleConfig.followThemeGlow ? 0.3 : 1 }}>
                           <input 
@@ -3574,15 +3577,14 @@ function OptionsPanel({
                               className="w-3 h-3"
                               style={{ accentColor: accentHex }}
                            />
-                           跟随主题
-                        </label>
+                           {t('ui.text.162', lang)}</label>
                       </div>
                    </div>
                    
                    <div className="col-span-3">
                        <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3 flex items-center justify-between">
-                         <span>字体类型</span>
-                         <span className="text-[10px] text-white/40">{currentStyleConfig.fontFamily === 'serif' ? '宋体类 (Serif)' : '黑体类 (Sans)'}</span>
+                         <span>{t('ui.text.163', lang)}</span>
+                         <span className="text-[10px] text-white/40">{currentStyleConfig.fontFamily === 'serif' ? t('ui.text.164', lang) : t('ui.text.165', lang)}</span>
                        </div>
                        <div className="flex gap-2">
                           <button
@@ -3590,15 +3592,13 @@ function OptionsPanel({
                             style={currentStyleConfig.fontFamily === 'serif' ? { borderColor: accentHex, color: accentHex, boxShadow: `0 0 10px ${accentHex}33` } : {}}
                             onClick={() => updateConfig({ fontFamily: 'serif' })}
                           >
-                            尖锐锐利
-                          </button>
+                            {t('ui.text.166', lang)}</button>
                           <button
                             className={`flex-1 py-2 text-[12px] rounded-sm border transition-colors font-sans tracking-widest ${currentStyleConfig.fontFamily === 'sans-serif' ? '' : 'border-white/10 text-white/50 hover:text-white'}`}
                             style={currentStyleConfig.fontFamily === 'sans-serif' ? { borderColor: accentHex, color: accentHex, boxShadow: `0 0 10px ${accentHex}33` } : {}}
                             onClick={() => updateConfig({ fontFamily: 'sans-serif' })}
                           >
-                            平滑现代
-                          </button>
+                            {t('ui.text.167', lang)}</button>
                        </div>
                     </div>
                 </div>
@@ -3608,42 +3608,37 @@ function OptionsPanel({
             <div className="flex flex-col gap-6">
               <div className="bg-white/[0.02] border border-white/5 rounded-sm p-4 flex flex-col gap-5">
                 <div>
-                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">界面可见性 (Visibility)</div>
+                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.168', lang)}</div>
                   <div className="grid grid-cols-2 gap-4">
                     <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.showLeftIcon} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, showLeftIcon: e.target.checked }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      显示左侧设置图标
-                    </label>
+                      {t('ui.text.169', lang)}</label>
                     <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.showRightIcon} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, showRightIcon: e.target.checked }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      显示右侧菜单图标
-                    </label>
+                      {t('ui.text.170', lang)}</label>
                     <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.showBottomPlayer} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, showBottomPlayer: e.target.checked }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      显示底部播放器
-                    </label>
+                      {t('ui.text.171', lang)}</label>
                     <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.showLyrics} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, showLyrics: e.target.checked }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      显示歌词
-                    </label>
+                      {t('ui.text.172', lang)}</label>
                     <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.showCover} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, showCover: e.target.checked }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      显示封面
-                    </label>
+                      {t('ui.text.173', lang)}</label>
                   </div>
                 </div>
               </div>
 
               <div className="bg-white/[0.02] border border-white/5 rounded-sm p-4 flex flex-col gap-5">
                 <div>
-                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">场景与控制 (Scene & Controls)</div>
+                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-3">{t('ui.text.174', lang)}</div>
                   
                   <div className="flex flex-col gap-4">
                     <div>
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-[11px] text-white/75">场景旋转速度</div>
-                          <div className="mt-1 text-[9px] text-white/35">全局控制地面自动旋转速度，调到 0 就停止</div>
+                          <div className="text-[11px] text-white/75">{t('ui.text.175', lang)}</div>
+                          <div className="mt-1 text-[9px] text-white/35">{t('ui.text.176', lang)}</div>
                         </div>
                         <div className="text-[11px]" style={{ color: accentHex }}>{globalSceneSettings.rotationSpeed.toFixed(2)}</div>
                       </div>
@@ -3662,16 +3657,16 @@ function OptionsPanel({
               </div>
 
               <div className="bg-white/[0.02] border border-white/5 rounded-sm p-4 flex flex-col gap-4">
-                <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-1">快捷键 (Shortcuts)</div>
-                <div className="text-[10px] text-white/40 mb-2">点击输入框后按下组合键以修改</div>
+                <div className="text-[12px] uppercase tracking-[0.15em] text-white/70 mb-1">{t('ui.text.177', lang)}</div>
+                <div className="text-[10px] text-white/40 mb-2">{t('ui.text.178', lang)}</div>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-widest text-white/50">播放 / 暂停</div>
+                    <div className="text-[11px] uppercase tracking-widest text-white/50">{t('ui.text.179', lang)}</div>
                     <input 
                       type="text" 
                       value={displaySettings.shortcuts?.playPause || 'Space'} 
                       readOnly 
-                      placeholder="按下快捷键"
+                      placeholder={t('ui.text.180', lang)}
                       className="bg-black/20 border border-white/10 rounded-sm px-3 py-1 text-[11px] text-white/80 w-40 text-center outline-none focus:border-white/30 transition-colors cursor-pointer"
                       onKeyDown={(e) => {
                         e.preventDefault();
@@ -3689,12 +3684,12 @@ function OptionsPanel({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-widest text-white/50">上一首</div>
+                    <div className="text-[11px] uppercase tracking-widest text-white/50">{t('ui.text.181', lang)}</div>
                     <input 
                       type="text" 
                       value={displaySettings.shortcuts?.prevSong || 'Ctrl+ArrowLeft'} 
                       readOnly 
-                      placeholder="按下快捷键"
+                      placeholder={t('ui.text.182', lang)}
                       className="bg-black/20 border border-white/10 rounded-sm px-3 py-1 text-[11px] text-white/80 w-40 text-center outline-none focus:border-white/30 transition-colors cursor-pointer"
                       onKeyDown={(e) => {
                         e.preventDefault();
@@ -3712,12 +3707,12 @@ function OptionsPanel({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-widest text-white/50">下一首</div>
+                    <div className="text-[11px] uppercase tracking-widest text-white/50">{t('ui.text.183', lang)}</div>
                     <input 
                       type="text" 
                       value={displaySettings.shortcuts?.nextSong || 'Ctrl+ArrowRight'} 
                       readOnly 
-                      placeholder="按下快捷键"
+                      placeholder={t('ui.text.184', lang)}
                       className="bg-black/20 border border-white/10 rounded-sm px-3 py-1 text-[11px] text-white/80 w-40 text-center outline-none focus:border-white/30 transition-colors cursor-pointer"
                       onKeyDown={(e) => {
                         e.preventDefault();
@@ -3739,15 +3734,14 @@ function OptionsPanel({
 
               <div className="bg-white/[0.02] border border-white/5 rounded-sm p-4 flex flex-col gap-5">
                 <div className="flex items-center justify-between">
-                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70">主屏时钟 (Clock)</div>
+                  <div className="text-[12px] uppercase tracking-[0.15em] text-white/70">{t('ui.text.185', lang)}</div>
                   <label className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                     <input type="checkbox" checked={displaySettings.clock.visible} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, clock: { ...s.clock, visible: e.target.checked } }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                    开启时钟
-                  </label>
+                    {t('ui.text.186', lang)}</label>
                 </div>
                 
                 <div className="opacity-100 transition-opacity" style={{ opacity: displaySettings.clock.visible ? 1 : 0.4, pointerEvents: displaySettings.clock.visible ? 'auto' : 'none' }}>
-                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2">位置 (Position)</div>
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2">{t('ui.text.187', lang)}</div>
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {['top-left', 'top-center', 'top-right', 'center-left', 'center', 'center-right', 'bottom-left', 'bottom-center', 'bottom-right'].map(pos => (
                       <button
@@ -3762,25 +3756,24 @@ function OptionsPanel({
                   </div>
 
                   <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2 mt-4 flex justify-between">
-                    <span>字体大小 (Size)</span>
+                    <span>{t('ui.text.188', lang)}</span>
                     <span>{displaySettings.clock.size}px</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <input type="range" min="20" max="200" value={displaySettings.clock.size} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, clock: { ...s.clock, size: Number(e.target.value) } }))} className="flex-1 accent-white" style={{ accentColor: accentHex }} />
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2 mt-4">颜色 (Color)</div>
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2 mt-4">{t('ui.text.189', lang)}</div>
                   <div className="flex items-center gap-4">
                     <div className="relative w-8 h-8 rounded-full border-[2px] overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.2)', opacity: displaySettings.clock.followThemeColor ? 0.3 : 1 }}>
                       <input type="color" value={displaySettings.clock.color} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, clock: { ...s.clock, color: e.target.value } }))} disabled={displaySettings.clock.followThemeColor} className="absolute inset-[-10px] w-[50px] h-[50px] cursor-pointer" />
                     </div>
                     <label className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/50 cursor-pointer hover:text-white transition-colors">
                       <input type="checkbox" checked={displaySettings.clock.followThemeColor} onChange={(e) => onDisplaySettingsChange(s => ({ ...s, clock: { ...s.clock, followThemeColor: e.target.checked } }))} className="w-3 h-3" style={{ accentColor: accentHex }} />
-                      跟随主题
-                    </label>
+                      {t('ui.text.190', lang)}</label>
                   </div>
 
-                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2 mt-4">透明度 (Opacity)</div>
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/50 mb-2 mt-4">{t('ui.text.191', lang)}</div>
                   <div className="flex items-center gap-3">
                     <input
                       type="range" min={10} max={100} step={1}
@@ -3811,6 +3804,7 @@ function FloatingBlocksPanel({
   groundEqSettings: StoredGroundEqSettings;
   onGroundEqSettingsChange: (settings: StoredGroundEqSettings) => void;
 }) {
+    const lang = useLanguage();
   const enabled = groundEqSettings.floatingBlocksEnabled ?? DEFAULT_FLOATING_BLOCKS_ENABLED;
   const intensity = groundEqSettings.floatingBlockIntensity ?? DEFAULT_FLOATING_BLOCK_INTENSITY;
   const minSize = groundEqSettings.floatingBlockMinSize ?? DEFAULT_FLOATING_BLOCK_MIN_SIZE;
@@ -3830,8 +3824,8 @@ function FloatingBlocksPanel({
     <div className="grid gap-5">
       <div className="flex items-start justify-between gap-4 border border-white/10 bg-white/[0.03] rounded-sm p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <div>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">浮空方块特效</div>
-          <div className="text-[11px] leading-relaxed text-white/45">空气中的小方块会跟随底鼓和低频能量放大缩小，适合做更明显的空间跳动层。</div>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">{t('ui.text.192', lang)}</div>
+          <div className="text-[11px] leading-relaxed text-white/45">{t('ui.text.193', lang)}</div>
         </div>
         <label className="flex shrink-0 items-center gap-2 cursor-pointer rounded-sm border border-white/10 px-3 py-2">
           <input
@@ -3841,50 +3835,50 @@ function FloatingBlocksPanel({
             className="h-4 w-4 rounded-sm border-white/20 bg-black/50"
             style={{ accentColor: accentHex }}
           />
-          <span className="text-[10px] uppercase tracking-[0.12em] text-white/55">启用</span>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-white/55">{t('ui.text.194', lang)}</span>
         </label>
       </div>
 
       <div className="rounded-sm border bg-white/[0.025] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}>
         {[
           {
-            label: '变化幅度',
-            hint: '整体放大缩小的冲击感',
+            label: t('ui.text.195', lang),
+            hint: t('ui.text.196', lang),
             value: intensity,
-            minLabel: '克制',
-            maxLabel: '强烈',
+            minLabel: t('ui.text.197', lang),
+            maxLabel: t('ui.text.198', lang),
             onChange: (value: number) => commit({ floatingBlockIntensity: clampSetting(value) }),
           },
           {
-            label: '最小大小',
-            hint: '没有底鼓时的基础尺寸',
+            label: t('ui.text.199', lang),
+            hint: t('ui.text.200', lang),
             value: minSize,
-            minLabel: '细小',
-            maxLabel: '明显',
+            minLabel: t('ui.text.201', lang),
+            maxLabel: t('ui.text.202', lang),
             onChange: commitMinSize,
           },
           {
-            label: '最大大小',
-            hint: '底鼓触发时允许到达的最大尺寸',
+            label: t('ui.text.203', lang),
+            hint: t('ui.text.204', lang),
             value: maxSize,
-            minLabel: '收敛',
-            maxLabel: '巨大',
+            minLabel: t('ui.text.205', lang),
+            maxLabel: t('ui.text.206', lang),
             onChange: commitMaxSize,
           },
           {
-            label: '变化速度',
-            hint: '从小到大、再回落的响应速度',
+            label: t('ui.text.207', lang),
+            hint: t('ui.text.208', lang),
             value: speed,
-            minLabel: '缓慢',
-            maxLabel: '迅速',
+            minLabel: t('ui.text.209', lang),
+            maxLabel: t('ui.text.210', lang),
             onChange: (value: number) => commit({ floatingBlockSpeed: clampSetting(value) }),
           },
           {
-            label: '方块数量',
-            hint: '场景中漂浮方块的总数',
+            label: t('ui.text.211', lang),
+            hint: t('ui.text.212', lang),
             value: count,
-            minLabel: '稀少',
-            maxLabel: '密集',
+            minLabel: t('ui.text.213', lang),
+            maxLabel: t('ui.text.214', lang),
             onChange: (value: number) => commit({ floatingBlockCount: clampSetting(value) }),
           },
         ].map((control) => (
@@ -3928,6 +3922,7 @@ function GroundEqPanel({
   groundEqSettings: StoredGroundEqSettings;
   onGroundEqSettingsChange: (settings: StoredGroundEqSettings) => void;
 }) {
+    const lang = useLanguage();
   const [bands, setBands] = useState(groundEqSettings.bands);
   const [motionSpeed, setMotionSpeed] = useState(groundEqSettings.motionSpeed ?? DEFAULT_GROUND_MOTION_SPEED);
   const [amplitude, setAmplitude] = useState(groundEqSettings.amplitude ?? 50);
@@ -3974,14 +3969,14 @@ function GroundEqPanel({
     effect: string;
     description: string;
   }> = [
-    { id: 'subBass', marker: '1', color: '#6ee7ff', label: '中心抬升', english: 'Sub Bass', effect: '大块抬升', description: '低沉冲击会把地面中心顶起来。' },
-    { id: 'bass', marker: '2', color: '#5eead4', label: '低频重量', english: 'Bass', effect: '块状起伏', description: '底鼓和低音线推动中心附近的厚重起伏。' },
-    { id: 'lowMid', marker: '3', color: '#a7f3d0', label: '慢波流动', english: 'Low Mid', effect: '整片波浪', description: '控制整片地形的慢速波浪和呼吸感。' },
-    { id: 'mid', marker: '4', color: '#fde68a', label: '方向流', english: 'Mid', effect: '斜向流动', description: '人声和旋律会带出更明显的地面方向感。' },
-    { id: 'highMid', marker: '5', color: '#fbbf24', label: '尖峰', english: 'High Mid', effect: '外围散点', description: '让外围随机柱体更容易冒出尖峰。' },
-    { id: 'presence', marker: '6', color: '#fb7185', label: '闪光触发', english: 'Presence', effect: '局部闪光', description: '清脆敲击、齿音和镲片会触发更多亮点。' },
-    { id: 'brilliance', marker: '7', color: '#c084fc', label: '边缘微闪', english: 'Brilliance', effect: '细碎高亮', description: '强化柱体边缘的细碎火花和微闪。' },
-    { id: 'air', marker: '8', color: '#93c5fd', label: '空气颗粒', english: 'Air', effect: '高频颗粒', description: '控制最轻的高频颗粒和轻微闪烁。' },
+    { id: 'subBass', marker: '1', color: '#6ee7ff', label: t('ui.text.215', lang), english: 'Sub Bass', effect: t('ui.text.216', lang), description: t('ui.text.217', lang) },
+    { id: 'bass', marker: '2', color: '#5eead4', label: t('ui.text.218', lang), english: 'Bass', effect: t('ui.text.219', lang), description: t('ui.text.220', lang) },
+    { id: 'lowMid', marker: '3', color: '#a7f3d0', label: t('ui.text.221', lang), english: 'Low Mid', effect: t('ui.text.222', lang), description: t('ui.text.223', lang) },
+    { id: 'mid', marker: '4', color: '#fde68a', label: t('ui.text.224', lang), english: 'Mid', effect: t('ui.text.225', lang), description: t('ui.text.226', lang) },
+    { id: 'highMid', marker: '5', color: '#fbbf24', label: t('ui.text.227', lang), english: 'High Mid', effect: t('ui.text.228', lang), description: t('ui.text.229', lang) },
+    { id: 'presence', marker: '6', color: '#fb7185', label: t('ui.text.230', lang), english: 'Presence', effect: t('ui.text.231', lang), description: t('ui.text.232', lang) },
+    { id: 'brilliance', marker: '7', color: '#c084fc', label: t('ui.text.233', lang), english: 'Brilliance', effect: t('ui.text.234', lang), description: t('ui.text.235', lang) },
+    { id: 'air', marker: '8', color: '#93c5fd', label: t('ui.text.236', lang), english: 'Air', effect: t('ui.text.237', lang), description: t('ui.text.238', lang) },
   ];
 
   const commitBand = (bandIndex: number, nextValue: number) => {
@@ -4064,29 +4059,28 @@ function GroundEqPanel({
     <div className="grid gap-5">
       <div className="flex items-start justify-between gap-4 border border-white/10 bg-white/[0.03] rounded-sm p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <div>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">地面特效混音台</div>
-          <div className="text-[11px] leading-relaxed text-white/45">每条竖滑块只控制一个地面特效。横向速度控制柱子起伏快慢，不改变音乐声音。</div>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">{t('ui.text.239', lang)}</div>
+          <div className="text-[11px] leading-relaxed text-white/45">{t('ui.text.240', lang)}</div>
         </div>
         <button
           onClick={resetBands}
           className="shrink-0 px-3 py-2 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/55 hover:text-white transition-colors"
         >
-          恢复默认
-        </button>
+          {t('ui.text.241', lang)}</button>
       </div>
 
       <div className="rounded-sm border bg-white/[0.025] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">起伏速度</div>
-            <div className="mt-1 text-[10px] leading-relaxed text-white/38">控制地面柱子跟随音乐升高和回落的速度</div>
+            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">{t('ui.text.242', lang)}</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-white/38">{t('ui.text.243', lang)}</div>
           </div>
           <div className="text-[13px] font-medium tabular-nums" style={{ color: accentHex }}>{motionSpeed}</div>
         </div>
         <div className="mt-4 grid grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">柔和</span>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.244', lang)}</span>
           <input
-            aria-label="地面起伏速度"
+            aria-label={t('ui.text.245', lang)}
             type="range"
             min={0}
             max={100}
@@ -4096,20 +4090,20 @@ function GroundEqPanel({
             className="h-1 w-full cursor-pointer accent-current"
             style={{ accentColor: accentHex }}
           />
-          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">敏捷</span>
+          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.246', lang)}</span>
         </div>
         
         <div className="mt-6 flex items-center justify-between gap-4">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">起伏高度</div>
-            <div className="mt-1 text-[10px] leading-relaxed text-white/38">控制音乐触发的地形高低缩放</div>
+            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">{t('ui.text.247', lang)}</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-white/38">{t('ui.text.248', lang)}</div>
           </div>
           <div className="text-[13px] font-medium tabular-nums" style={{ color: accentHex }}>{amplitude}</div>
         </div>
         <div className="mt-4 grid grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">平缓</span>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.249', lang)}</span>
           <input
-            aria-label="地面起伏高度"
+            aria-label={t('ui.text.250', lang)}
             type="range"
             min={0}
             max={100}
@@ -4119,12 +4113,12 @@ function GroundEqPanel({
             className="h-1 w-full cursor-pointer accent-current"
             style={{ accentColor: accentHex }}
           />
-          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">高耸</span>
+          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.251', lang)}</span>
         </div>
         <div className="mt-6 flex items-center justify-between gap-4">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">方块密度</div>
-            <div className="mt-1 text-[10px] leading-relaxed text-white/38">低性能时方块更大更少，高性能时方块更小更多</div>
+            <div className="text-[12px] uppercase tracking-[0.16em] text-white/70">{t('ui.text.252', lang)}</div>
+            <div className="mt-1 text-[10px] leading-relaxed text-white/38">{t('ui.text.253', lang)}</div>
           </div>
           <div className="text-right">
             <div className="text-[13px] font-medium tabular-nums" style={{ color: accentHex }}>{terrainDensity}</div>
@@ -4132,9 +4126,9 @@ function GroundEqPanel({
           </div>
         </div>
         <div className="mt-4 grid grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">性能</span>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.254', lang)}</span>
           <input
-            aria-label="方块密度"
+            aria-label={t('ui.text.255', lang)}
             type="range"
             min={0}
             max={100}
@@ -4144,7 +4138,7 @@ function GroundEqPanel({
             className="h-1 w-full cursor-pointer accent-current"
             style={{ accentColor: accentHex }}
           />
-          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">细节</span>
+          <span className="text-right text-[10px] uppercase tracking-[0.12em] text-white/35">{t('ui.text.256', lang)}</span>
         </div>
       </div>
 
@@ -4195,8 +4189,7 @@ function GroundEqPanel({
                       </svg>
                     </div>
                     <span className="text-[10px] uppercase tracking-[0.08em] text-white/50 group-hover:text-white/80 transition-colors select-none">
-                      启用特效
-                    </span>
+                      {t('ui.text.257', lang)}</span>
                     <input
                       type="checkbox"
                       className="hidden"
@@ -4215,6 +4208,7 @@ function GroundEqPanel({
 }
 
 function ThrottledColorInput({ value, onChange, disabled, className, title }: { value: string, onChange: (val: string) => void, disabled?: boolean, className?: string, title?: string }) {
+    const lang = useLanguage();
   const [localValue, setLocalValue] = React.useState(value);
   const lastUpdateRef = React.useRef(0);
   const timeoutRef = React.useRef<any>(null);
@@ -4256,6 +4250,7 @@ function ThrottledColorInput({ value, onChange, disabled, className, title }: { 
 }
 
 function ThrottledRangeInput({ min, max, step, value, onChange, className, style }: any) {
+    const lang = useLanguage();
   const [localValue, setLocalValue] = React.useState(value);
   const lastUpdateRef = React.useRef(0);
   const timeoutRef = React.useRef<any>(null);
@@ -4317,6 +4312,7 @@ function CustomColorPanel({
   onCustomThemesChange: (settings: CustomThemeSettings[], activeId?: string) => void;
   onThemeRotationChange: (settings: ThemeRotationSettings) => void;
 }) {
+    const lang = useLanguage();
   const activePreset = customThemes.find((preset) => preset.id === activeCustomThemeId) || customThemes[0] || createCustomThemePreset();
   const rotationItems = [
     ...BUILT_IN_THEME_IDS.map((id) => ({
@@ -4389,33 +4385,31 @@ function CustomColorPanel({
   };
 
   const colorControls: Array<{ key: keyof Pick<CustomThemeSettings, 'cool' | 'warm' | 'accent'>; label: string; hint: string }> = [
-    { key: 'cool', label: '冷色', hint: '控制亮部、冷调和高频地形发光' },
-    { key: 'warm', label: '暖色', hint: '控制暖调地形发光，也会影响流星颜色' },
-    { key: 'accent', label: '强调色', hint: '控制按钮、歌词、进度条、脉冲波纹和设置滑块' },
+    { key: 'cool', label: t('ui.text.258', lang), hint: t('ui.text.259', lang) },
+    { key: 'warm', label: t('ui.text.260', lang), hint: t('ui.text.261', lang) },
+    { key: 'accent', label: t('ui.text.262', lang), hint: t('ui.text.263', lang) },
   ];
 
   return (
     <div className="grid gap-5">
       <div className="flex items-center justify-between gap-4 border border-white/10 bg-white/[0.03] rounded-sm p-4">
         <div>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">自定义主题</div>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">{t('ui.text.264', lang)}</div>
           <div className="text-[11px] leading-relaxed text-white/45">
-            四个内置主题保持原样。这里可以提前保存多个自定义主题，点击“使用”后才会切换。
-          </div>
+            {t('ui.text.265', lang)}</div>
         </div>
         <button
           onClick={addCustomTheme}
           className="shrink-0 px-3 py-2 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/55 hover:text-white transition-colors"
         >
-          新建主题
-        </button>
+          {t('ui.text.266', lang)}</button>
       </div>
 
       <div className="grid gap-4 rounded-sm border border-white/10 bg-white/[0.03] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">自动轮换主题</div>
-            <div className="text-[11px] leading-relaxed text-white/45">选择参与轮换的默认主题和自定义主题，并设置切换间隔。</div>
+            <div className="text-[12px] uppercase tracking-[0.18em] text-white/70 mb-2">{t('ui.text.267', lang)}</div>
+            <div className="text-[11px] leading-relaxed text-white/45">{t('ui.text.268', lang)}</div>
           </div>
           <button
             onClick={() => updateRotation({ enabled: !themeRotation.enabled })}
@@ -4424,14 +4418,14 @@ function CustomColorPanel({
             }`}
             style={themeRotation.enabled ? activeControlStyle(accentHex) : undefined}
           >
-            {themeRotation.enabled ? '已开启' : '开启轮换'}
+            {themeRotation.enabled ? t('ui.text.269', lang) : t('ui.text.270', lang)}
           </button>
         </div>
 
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-[12px] text-white/75">轮换时间</div>
-            <div className="text-[12px]" style={{ color: accentHex }}>{themeRotation.intervalSeconds} 秒</div>
+            <div className="text-[12px] text-white/75">{t('ui.text.271', lang)}</div>
+            <div className="text-[12px]" style={{ color: accentHex }}>{themeRotation.intervalSeconds} {t('ui.text.272', lang)}</div>
           </div>
           <ThrottledRangeInput
             min="3"
@@ -4449,14 +4443,12 @@ function CustomColorPanel({
             onClick={() => updateRotation({ themeIds: rotationItems.map((item) => item.id) })}
             className="px-3 py-1.5 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/45 hover:text-white transition-colors"
           >
-            全选
-          </button>
+            {t('ui.text.273', lang)}</button>
           <button
             onClick={() => updateRotation({ themeIds: [] })}
             className="px-3 py-1.5 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/45 hover:text-white transition-colors"
           >
-            清空
-          </button>
+            {t('ui.text.274', lang)}</button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -4512,7 +4504,7 @@ function CustomColorPanel({
                   ))}
                 </span>
                 <span className="mt-2 block text-[9px] uppercase tracking-[0.14em]" style={{ color: isUsingPreset ? accentHex : 'rgba(255,255,255,0.35)' }}>
-                  {isUsingPreset ? '正在使用' : '已保存'}
+                  {isUsingPreset ? t('ui.text.275', lang) : t('ui.text.276', lang)}
                 </span>
               </button>
               <button
@@ -4523,17 +4515,16 @@ function CustomColorPanel({
                 }}
                 disabled={customThemes.length <= 1}
                 className="absolute right-2 top-2 rounded-sm border border-white/10 px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-white/35 hover:text-[#ef4444] disabled:opacity-25 disabled:hover:text-white/35"
-                title="删除主题"
+                title={t('ui.text.277', lang)}
               >
-                删除
-              </button>
+                {t('ui.text.278', lang)}</button>
             </div>
           );
         })}
       </div>
 
       <div className="grid gap-2">
-        <label className="text-[10px] uppercase tracking-[0.18em] text-white/45">主题名称</label>
+        <label className="text-[10px] uppercase tracking-[0.18em] text-white/45">{t('ui.text.279', lang)}</label>
         <input
           value={activePreset.name}
           onChange={(event) => updateCustomTheme({ name: event.target.value })}
@@ -4549,11 +4540,11 @@ function CustomColorPanel({
               value={activePreset.background}
               onChange={(val: string) => updateCustomTheme({ background: val })}
               className="h-9 w-9 shrink-0 cursor-pointer rounded-sm border border-white/10 bg-transparent p-0"
-              title="地面暗部"
+              title={t('ui.text.280', lang)}
             />
             <span className="min-w-0">
-              <span className="block text-[12px] text-white/75">地面暗部</span>
-              <span className="block mt-1 text-[10px] leading-relaxed text-white/35">控制地面底色和柱体暗部</span>
+              <span className="block text-[12px] text-white/75">{t('ui.text.281', lang)}</span>
+              <span className="block mt-1 text-[10px] leading-relaxed text-white/35">{t('ui.text.282', lang)}</span>
             </span>
           </label>
 
@@ -4562,7 +4553,7 @@ function CustomColorPanel({
             onClick={() => updateCustomTheme({ fogLinkedToBackground: !activePreset.fogLinkedToBackground })}
             className="grid h-full min-h-[52px] place-items-center rounded-sm border border-white/10 text-white/45 transition-colors hover:text-white"
             style={activePreset.fogLinkedToBackground ? activeControlStyle(accentHex) : undefined}
-            title={activePreset.fogLinkedToBackground ? '后景背景跟随地面暗部' : '后景背景独立调整'}
+            title={activePreset.fogLinkedToBackground ? t('ui.text.283', lang) : t('ui.text.284', lang)}
           >
             {activePreset.fogLinkedToBackground ? <Lock size={15} /> : <Unlock size={15} />}
           </button>
@@ -4573,12 +4564,12 @@ function CustomColorPanel({
               disabled={activePreset.fogLinkedToBackground}
               onChange={(val: string) => updateCustomTheme({ fog: val })}
               className="h-9 w-9 shrink-0 cursor-pointer rounded-sm border border-white/10 bg-transparent p-0 disabled:cursor-not-allowed"
-              title="后景背景色"
+              title={t('ui.text.285', lang)}
             />
             <span className="min-w-0">
-              <span className="block text-[12px] text-white/75">后景背景</span>
+              <span className="block text-[12px] text-white/75">{t('ui.text.286', lang)}</span>
               <span className="block mt-1 text-[10px] leading-relaxed text-white/35">
-                {activePreset.fogLinkedToBackground ? '已锁定，跟随地面暗部' : '控制画面后方背景，不影响地面暗部'}
+                {activePreset.fogLinkedToBackground ? t('ui.text.287', lang) : t('ui.text.288', lang)}
               </span>
             </span>
           </label>
@@ -4605,8 +4596,8 @@ function CustomColorPanel({
       <div className="rounded-sm border bg-white/[0.025] px-4 py-3" style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[12px] text-white/75">发光强度</div>
-            <div className="mt-1 text-[10px] text-white/35">控制地形整体发光亮度</div>
+            <div className="text-[12px] text-white/75">{t('ui.text.289', lang)}</div>
+            <div className="mt-1 text-[10px] text-white/35">{t('ui.text.290', lang)}</div>
           </div>
           <div className="text-[12px]" style={{ color: accentHex }}>{activePreset.glowIntensity.toFixed(2)}</div>
         </div>
@@ -4627,15 +4618,13 @@ function CustomColorPanel({
           disabled={customThemes.length <= 1}
           className="px-3 py-2 rounded-sm border border-white/10 text-[10px] uppercase tracking-[0.15em] text-white/35 hover:text-white disabled:opacity-25 disabled:hover:text-white/35 transition-colors"
         >
-          删除当前
-        </button>
+          {t('ui.text.291', lang)}</button>
         <button
           onClick={() => useCustomTheme(activePreset.id)}
           className="px-3 py-2 rounded-sm border text-[10px] uppercase tracking-[0.15em]"
           style={primaryGhostStyle(accentHex)}
         >
-          使用这个主题
-        </button>
+          {t('ui.text.292', lang)}</button>
       </div>
     </div>
   );
@@ -4671,6 +4660,7 @@ function PlaybackQualityPanel({
   settings: PlaybackQualitySettings;
   onSettingsChange: (settings: PlaybackQualitySettings | ((prev: PlaybackQualitySettings) => PlaybackQualitySettings)) => void;
 }) {
+    const lang = useLanguage();
   const optionButtonClass = 'rounded-sm border px-3 py-2 text-[11px] tracking-[0.08em] transition-colors';
 
   return (
@@ -4678,8 +4668,7 @@ function PlaybackQualityPanel({
       <div className="rounded-sm border border-white/10 bg-white/[0.035] p-5">
         <div className="text-[12px] uppercase tracking-[0.18em] text-white/65">QQ Music</div>
         <div className="mt-2 text-[11px] leading-relaxed text-white/45">
-          QQ 会从所选音质开始尝试，并在不可用时沿用现有降级逻辑。
-        </div>
+          {t('ui.text.293', lang)}</div>
         <div className="mt-4 flex flex-wrap gap-2">
           {QQ_PLAYBACK_QUALITY_OPTIONS.map((option) => (
             <button
@@ -4698,8 +4687,7 @@ function PlaybackQualityPanel({
       <div className="rounded-sm border border-white/10 bg-white/[0.035] p-5">
         <div className="text-[12px] uppercase tracking-[0.18em] text-white/65">Netease Cloud Music</div>
         <div className="mt-2 text-[11px] leading-relaxed text-white/45">
-          网易云会把所选码率传给播放地址接口；可播放性仍取决于账号、版权和地区权限。
-        </div>
+          {t('ui.text.294', lang)}</div>
         <div className="mt-4 flex flex-wrap gap-2">
           {NETEASE_PLAYBACK_BITRATE_OPTIONS.map((option) => (
             <button
@@ -4735,6 +4723,7 @@ function UpdatePromptModal({
   onRemindLater: () => void;
   onSkipVersion: () => void;
 }) {
+    const lang = useLanguage();
   const isDownloading = downloadJob?.status === 'queued' || downloadJob?.status === 'downloading';
   const total = Number(downloadJob?.total || 0);
   const progress = downloadJob
@@ -4742,7 +4731,7 @@ function UpdatePromptModal({
       ? `${formatBytes(downloadJob.received)} / ${formatBytes(total)}`
       : `已下载 ${formatBytes(downloadJob.received)}`)
     : '';
-  const notes = update.release?.notes?.trim() || '本次更新暂无详细说明。';
+  const notes = update.release?.notes?.trim() || t('ui.text.295', lang);
   const publishedAt = formatUpdatePublishedAt(update.release?.publishedAt);
 
   return (
@@ -4757,16 +4746,16 @@ function UpdatePromptModal({
         <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">Application Update</div>
-            <div className="mt-2 text-[22px] font-semibold tracking-[0.02em] text-white">发现新版本</div>
+            <div className="mt-2 text-[22px] font-semibold tracking-[0.02em] text-white">{t('ui.text.296', lang)}</div>
             <div className="mt-1 text-[12px] text-white/48">
-              当前版本 {update.currentVersion || '-'} {'->'} 最新版本 {update.latestVersion || '-'}
+              {t('ui.text.297', lang)}{update.currentVersion || '-'} {'->'} {t('ui.text.298', lang)}{update.latestVersion || '-'}
             </div>
           </div>
           <button
             onClick={onRemindLater}
             disabled={isDownloading}
             className="grid h-8 w-8 place-items-center rounded-full border border-white/10 text-white/45 hover:text-white disabled:opacity-40"
-            title="下次提醒"
+            title={t('ui.text.299', lang)}
           >
             <X size={15} />
           </button>
@@ -4775,11 +4764,11 @@ function UpdatePromptModal({
         <div className="themed-scrollbar grid max-h-[54vh] gap-4 overflow-y-auto px-5 py-4">
           <div className="rounded-[14px] border bg-white/[0.025] px-4 py-3" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
             <div className="text-[13px] font-semibold text-white/85">{update.release?.name || `Sonic Topography ${update.latestVersion || ''}`}</div>
-            {publishedAt && <div className="mt-1 text-[11px] text-white/38">发布于 {publishedAt}</div>}
+            {publishedAt && <div className="mt-1 text-[11px] text-white/38">{t('ui.text.300', lang)}{publishedAt}</div>}
           </div>
 
           <div>
-            <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-white/50">更新内容</div>
+            <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-white/50">{t('ui.text.301', lang)}</div>
             <div className="max-h-[240px] overflow-y-auto whitespace-pre-wrap rounded-[14px] border bg-black/20 px-4 py-3 text-[12px] leading-relaxed text-white/68" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
               {notes}
             </div>
@@ -4787,9 +4776,9 @@ function UpdatePromptModal({
 
           {(updateStatus || downloadJob) && (
             <div className="rounded-[14px] border bg-white/[0.025] px-4 py-3 text-[12px] leading-relaxed text-white/58" style={{ borderColor: colorWithAlpha(accentHex, 0.14) }}>
-              <div>{updateStatus || '等待下载'}</div>
-              {downloadJob?.channelName && <div className="mt-1 text-white/42">下载通道：{downloadJob.channelName}</div>}
-              {downloadJob && <div className="mt-1 text-white/42">进度：{progress}</div>}
+              <div>{updateStatus || t('ui.text.302', lang)}</div>
+              {downloadJob?.channelName && <div className="mt-1 text-white/42">{t('ui.text.303', lang)}{downloadJob.channelName}</div>}
+              {downloadJob && <div className="mt-1 text-white/42">{t('ui.text.304', lang)}{progress}</div>}
             </div>
           )}
         </div>
@@ -4800,22 +4789,20 @@ function UpdatePromptModal({
             disabled={isDownloading}
             className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/50 hover:text-white disabled:opacity-40"
           >
-            不再提示这个版本
-          </button>
+            {t('ui.text.305', lang)}</button>
           <button
             onClick={onRemindLater}
             disabled={isDownloading}
             className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/60 hover:text-white disabled:opacity-40"
           >
-            下次提醒
-          </button>
+            {t('ui.text.306', lang)}</button>
           <button
             onClick={onDownload}
             disabled={isDownloading}
             className="rounded-[10px] border px-4 py-2 text-[11px] font-semibold tracking-[0.08em] disabled:opacity-40"
             style={primaryGhostStyle(accentHex)}
           >
-            {isDownloading ? '下载中' : '立即更新'}
+            {isDownloading ? t('ui.text.307', lang) : t('ui.text.308', lang)}
           </button>
         </div>
       </div>
@@ -4868,6 +4855,7 @@ function AccountLoginPanel({
   isCheckingUpdate: boolean;
   onCheckUpdate: () => void | Promise<void>;
 }) {
+    const lang = useLanguage();
   const [provider, setProvider] = useState<'netease' | 'qq'>('netease');
   const isDesktop = Boolean(window.sonicDesktop?.isDesktop);
   const activeValid = provider === 'netease' ? isNeteaseCookieValid : isQQCookieValid;
@@ -4879,8 +4867,8 @@ function AccountLoginPanel({
       <div className="rounded-[18px] border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="grid grid-cols-2 gap-1">
           {[
-            { id: 'netease' as const, label: '网易云' },
-            { id: 'qq' as const, label: 'QQ 音乐' },
+            { id: 'netease' as const, label: t('ui.text.309', lang) },
+            { id: 'qq' as const, label: t('ui.text.310', lang) },
           ].map((item) => (
             <button
               key={item.id}
@@ -4899,10 +4887,9 @@ function AccountLoginPanel({
       <div className="rounded-[18px] border border-white/10 bg-white/[0.035] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: colorWithAlpha(accentHex, 0.16), background: `linear-gradient(135deg, ${colorWithAlpha(accentHex, 0.10)}, rgba(255,255,255,0.02))` }}>
           <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">Sonic Topography</div>
-          <div className="mt-2 text-[20px] font-semibold tracking-[0.02em] text-white">音乐播放器，也是一座视觉舞台</div>
+          <div className="mt-2 text-[20px] font-semibold tracking-[0.02em] text-white">{t('ui.text.311', lang)}</div>
           <div className="mt-2 max-w-[58ch] text-[12px] leading-relaxed text-white/52">
-            打开官方网页扫码登录，成功后会自动同步账号会话。Cookie 只保存在本机，用于搜索、歌单、歌词和播放地址。
-          </div>
+            {t('ui.text.312', lang)}</div>
         </div>
 
         <div className="grid place-items-center py-4">
@@ -4912,14 +4899,14 @@ function AccountLoginPanel({
                 {provider === 'netease' ? 'NE' : 'QQ'}
               </div>
               <div className="mt-2 text-[11px] text-white/38">
-                {activeValid ? '账号已同步' : '等待扫码确认'}
+                {activeValid ? t('ui.text.313', lang) : t('ui.text.314', lang)}
               </div>
             </div>
           </div>
         </div>
 
         <div className="text-center text-[12px] leading-relaxed text-white/55">
-          {isSyncing ? '正在校验会话...' : (desktopLoginStatus || activeStatus || (activeValid ? '账号可用，音乐入口已开启' : `扫码登录${provider === 'netease' ? '网易云音乐' : 'QQ 音乐'}`))}
+          {isSyncing ? t('ui.text.315', lang) : (desktopLoginStatus || activeStatus || (activeValid ? t('ui.text.316', lang) : `扫码登录${provider === 'netease' ? t('ui.text.317', lang) : t('ui.text.318', lang)}`))}
         </div>
 
         <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -4927,22 +4914,21 @@ function AccountLoginPanel({
             onClick={provider === 'netease' ? onClearCookie : onClearQQCookie}
             className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/55 hover:text-white"
           >
-            取消/清除
-          </button>
+            {t('ui.text.319', lang)}</button>
           <button
             onClick={provider === 'netease' ? onDesktopNeteaseLogin : onDesktopQQLogin}
             disabled={!isDesktop}
             className="rounded-[10px] border px-4 py-2 text-[11px] font-semibold tracking-[0.08em] disabled:opacity-40"
             style={primaryGhostStyle(accentHex)}
           >
-            {isDesktop ? '打开官方窗口扫码' : '桌面版可扫码登录'}
+            {isDesktop ? t('ui.text.320', lang) : t('ui.text.321', lang)}
           </button>
         </div>
       </div>
 
       {!isDesktop && (
         <div className="grid gap-3 rounded-[16px] border bg-white/[0.025] p-4" style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-white/60">手动 Cookie 降级入口</div>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-white/60">{t('ui.text.322', lang)}</div>
           {provider === 'netease' ? (
             <>
               <textarea
@@ -4953,7 +4939,7 @@ function AccountLoginPanel({
                 className="min-h-[120px] resize-y rounded-[12px] border bg-white/[0.035] px-3 py-3 font-mono text-[12px] leading-relaxed text-white outline-none focus:border-white/30"
                 style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}
               />
-              <button onClick={onSaveCookie} className="w-fit rounded-[10px] border px-4 py-2 text-[11px]" style={primaryGhostStyle(accentHex)}>保存网易云 Cookie</button>
+              <button onClick={onSaveCookie} className="w-fit rounded-[10px] border px-4 py-2 text-[11px]" style={primaryGhostStyle(accentHex)}>{t('ui.text.323', lang)}</button>
             </>
           ) : (
             <>
@@ -4965,7 +4951,7 @@ function AccountLoginPanel({
                 className="min-h-[120px] resize-y rounded-[12px] border bg-white/[0.035] px-3 py-3 font-mono text-[12px] leading-relaxed text-white outline-none focus:border-white/30"
                 style={{ borderColor: colorWithAlpha(accentHex, 0.16) }}
               />
-              <button onClick={onSaveQQCookie} className="w-fit rounded-[10px] border px-4 py-2 text-[11px]" style={primaryGhostStyle(accentHex)}>保存 QQ Cookie</button>
+              <button onClick={onSaveQQCookie} className="w-fit rounded-[10px] border px-4 py-2 text-[11px]" style={primaryGhostStyle(accentHex)}>{t('ui.text.324', lang)}</button>
             </>
           )}
         </div>
@@ -4974,15 +4960,15 @@ function AccountLoginPanel({
       <div className="rounded-[16px] border border-white/10 bg-white/[0.03] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.18em] text-white/65">应用更新</div>
-            <div className="mt-1 text-[11px] text-white/40">{updateStatus || '检查 GitHub Release，下载后打开安装包更新。'}</div>
+            <div className="text-[12px] uppercase tracking-[0.18em] text-white/65">{t('ui.text.325', lang)}</div>
+            <div className="mt-1 text-[11px] text-white/40">{updateStatus || t('ui.text.326', lang)}</div>
           </div>
           <button
             onClick={onCheckUpdate}
             disabled={isCheckingUpdate}
             className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/60 hover:text-white disabled:opacity-40"
           >
-            {isCheckingUpdate ? '检查中' : '检查更新'}
+            {isCheckingUpdate ? t('ui.text.327', lang) : t('ui.text.328', lang)}
           </button>
         </div>
       </div>
@@ -4990,6 +4976,7 @@ function AccountLoginPanel({
   );
 }
 function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', accentHex: string }) {
+    const lang = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const getConfig = () => action === 'Pulse' ? engine.pulseTrigger : engine.meteorTrigger;
@@ -5037,10 +5024,10 @@ function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', a
 
   const presets: TriggerPreset[] = ['Auto Beat', 'Advanced'];
   const modeLabels: Record<TriggerPreset, string> = {
-    'Auto Beat': '自动节拍',
-    Advanced: '高级模式',
+    'Auto Beat': t('ui.text.329', lang),
+    Advanced: t('ui.text.330', lang),
   };
-  const actionLabel = action === 'Pulse' ? '脉冲特效' : '流星特效';
+  const actionLabel = action === 'Pulse' ? t('ui.text.331', lang) : t('ui.text.332', lang);
 
   useEffect(() => {
     let animationId: number;
@@ -5187,7 +5174,7 @@ function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', a
                  className="w-4 h-4 rounded-sm border-white/20 bg-black/50"
                  style={{ accentColor: accentHex }}
                />
-               <span className="text-[10px] uppercase tracking-widest text-white/50">启用</span>
+               <span className="text-[10px] uppercase tracking-widest text-white/50">{t('ui.text.333', lang)}</span>
              </label>
           </div>
           
@@ -5207,8 +5194,8 @@ function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', a
 
           <p className="text-[11px] text-white/40 mb-6 font-mono h-10 leading-relaxed">
             {mode === 'Advanced' 
-              ? '拖动十字线设置目标频率和触发阈值。频谱超过阈值时，会触发当前视觉特效。'
-              : '自动节拍会比较当前频段能量和滚动平均值，能量明显抬升时触发视觉特效。'}
+              ? t('ui.text.334', lang)
+              : t('ui.text.335', lang)}
           </p>
           <div className={`relative w-full aspect-[2/1] bg-black/50 border border-white/5 rounded overflow-hidden ${mode === 'Advanced' ? 'cursor-crosshair' : ''}`}>
             <canvas 
@@ -5227,21 +5214,21 @@ function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', a
             <div className="mt-8 grid grid-cols-2 gap-6">
                <div className="flex flex-col gap-2">
                  <div className="flex justify-between uppercase tracking-widest text-[10px] text-white/50">
-                    <span>灵敏度</span>
+                    <span>{t('ui.text.336', lang)}</span>
                     <span style={{ color: accentHex }}>{sensitivity.toFixed(2)}</span>
                  </div>
                  <input type="range" min="0" max="1" step="0.05" value={sensitivity} onChange={e => setSensitivity(parseFloat(e.target.value))} className="w-full accent-current h-1" style={{ accentColor: accentHex }}/>
                </div>
                <div className="flex flex-col gap-2">
                  <div className="flex justify-between uppercase tracking-widest text-[10px] text-white/50">
-                    <span>冷却帧数</span>
+                    <span>{t('ui.text.337', lang)}</span>
                     <span style={{ color: accentHex }}>{cooldown}</span>
                  </div>
                  <input type="range" min="0" max="300" step="1" value={cooldown} onChange={e => setCooldown(parseInt(e.target.value))} className="w-full accent-current h-1" style={{ accentColor: accentHex }}/>
                </div>
                <div className="flex flex-col gap-2">
                  <div className="flex justify-between uppercase tracking-widest text-[10px] text-white/50">
-                    <span>触发频段 ({bandStart} - {bandEnd})</span>
+                    <span>{t('ui.text.338', lang)}{bandStart} - {bandEnd})</span>
                  </div>
                  <div className="flex gap-2">
                    <input type="range" min="0" max="250" step="1" value={bandStart} onChange={e => setBandStart(Math.min(parseInt(e.target.value), bandEnd - 1))} className="w-1/2 accent-current h-1" style={{ accentColor: accentHex }}/>
@@ -5250,7 +5237,7 @@ function FreqTriggerPanel({ action, accentHex }: { action: 'Pulse' | 'Meteor', a
                </div>
                <div className="flex flex-col gap-2">
                  <div className="flex justify-between uppercase tracking-widest text-[10px] text-white/50">
-                    <span>特效强度</span>
+                    <span>{t('ui.text.339', lang)}</span>
                     <span style={{ color: accentHex }}>{pulseStrength.toFixed(2)}</span>
                  </div>
                  <input type="range" min="0" max="5" step="0.1" value={pulseStrength} onChange={e => setPulseStrength(parseFloat(e.target.value))} className="w-full accent-current h-1" style={{ accentColor: accentHex }}/>

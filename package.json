@@ -2,7 +2,7 @@
   "name": "sonic-topography",
   "productName": "Sonic Topography",
   "private": true,
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "A desktop music player and 3D audio visualizer.",
   "author": "Sonic Topography",
   "type": "module",

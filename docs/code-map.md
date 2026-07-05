@@ -10,6 +10,7 @@ Last fully verified commit: `unknown`
 | --- | --- | --- | --- |
 | Electron shell, window chrome, login bridge, installer config | `desktop/main.js`, `desktop/preload.cjs`, `scripts/dev-electron.mjs`, `package.json` | `src/lib/neteaseCookie.test.ts`, `src/lib/qqCookie.test.ts` | `npm run dev:electron`, `npm run build:electron:dir`, `npm run build:electron` |
 | Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npm run lint`, `npm run build`, `npm run dev:electron` |
+| Language switching and UI copy | `src/lib/i18n.ts`, `src/lib/locales.ts`, `src/components/UI/UI.tsx` | none dedicated yet | `npm run lint`, `npm run build`, manual zh/en toggle check in Electron |
 | Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/neteaseAudioProxy.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
 | Netease API, cookies, liked songs, playlists, daily recommendations | `vite.config.ts`, `local-server.mjs`, `server/netease-library.mjs`, `src/lib/neteaseCookie.ts` | `src/lib/neteaseCookie.test.ts`, `src/lib/neteasePlaylist.test.ts` | `npx tsx src/lib/neteaseCookie.test.ts`, `npx tsx src/lib/neteasePlaylist.test.ts`, `npm run build` |
 | QQ Music API, cookies, search, personal playlists, lyrics, audio proxy | `server/qq-music.mjs`, `vite.config.ts`, `local-server.mjs`, `src/lib/qqCookie.ts` | `src/lib/qqCookie.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/qqCookie.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run build` |
@@ -115,6 +116,14 @@ Main interaction surface. Owns sidebar, search, cloud music panel, account login
 `src/lib/playbackQuality.ts`
 
 Stores global cloud playback quality settings. Defaults preserve the old behavior: QQ `exhigh` / 320k MP3 and Netease `320000`. `UI.loadNeteaseSong()` and last-played preload must use `buildQQPlaybackUrl()` / `buildNeteasePlaybackUrl()` so `/api/qq/*` receives `quality` and `/api/netease/*` receives `br`.
+
+`src/lib/i18n.ts`
+
+Small client-side language store for zh/en UI switching. It reads/writes `app_language` in localStorage, notifies React subscribers through `useLanguage()`, and resolves translation keys through `t()`.
+
+`src/lib/locales.ts`
+
+Bulk UI copy dictionary used by `i18n.ts`. When adding new UI text in `UI.tsx`, add both zh and en strings here and verify the language toggle in a real Electron/browser session.
 
 `src/types.ts`
 
@@ -332,6 +341,14 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 5. Run `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, and `npm run build`.
 6. For real acceptance, switch QQ and Netease quality settings, replay the same cloud song, and verify the request URL includes the selected `quality` or `br`.
 
+### Change Language Switching
+
+1. Add or adjust translation keys in `src/lib/locales.ts`.
+2. Use `t(key, lang)` from `src/lib/i18n.ts` in `src/components/UI/UI.tsx`.
+3. Keep both zh and en values present for every new key; missing keys render the key string.
+4. Run `npm run lint` and `npm run build`.
+5. For real acceptance, toggle zh/en in Electron and scan the main player, settings, cloud account, update prompt, and playlist/search panels.
+
 ### Fix Netease Audio Proxy Crashes
 
 1. Start at `server/netease-audio-proxy.mjs`; it must remain the shared stream pump for `vite.config.ts` and packaged `local-server.mjs`.
@@ -445,6 +462,7 @@ rg -n "visualPlatterRef|platterRotationRef|scenePlatterRotation|enableRotate" sr
 rg -n "spatial-wall|SpatialLyrics3D|currentLyricsText|parseLRC|maxCharsPerLine|wrapLyricTextLines" src
 rg -n "uCoolCore|uWarmCore|uRippleColor|uFogColor|fogLinkedToBackground|brightCool|createCustomThemeColors" src
 rg -n "effectiveSearchProvider|searchNetease|loadNeteaseSong|songIdentity|/api/netease|/api/qq" src vite.config.ts local-server.mjs server
+rg -n "useLanguage|setLanguage|t\\(|app_language|locales" src
 rg -n "playbackQuality|quality=|br=|neteasePlayableUrlCacheKey|buildNeteasePlayerUrl" src server vite.config.ts local-server.mjs
 rg -n "handleQQUserPlaylists|handleQQPlaylistTracks|normalizeQQPlaylistTrackLimit|mapQQPlaylist" server src
 rg -n "sonicDesktop|openNeteaseLogin|openQQLogin|Cookie" desktop src server
