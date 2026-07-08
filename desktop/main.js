@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from 'electron';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -11,6 +11,7 @@ const isDev = Boolean(process.env.SONIC_ELECTRON_DEV_URL);
 const appUrl = process.env.SONIC_ELECTRON_DEV_URL || `http://127.0.0.1:${process.env.PORT || '45437'}`;
 const updateDownloadDir = path.join(app.getPath('userData'), 'updates', 'downloads');
 const dataDir = path.join(app.getPath('userData'), 'data');
+const mainLogPath = path.join(app.getPath('userData'), 'logs', 'main.log');
 
 const NETEASE_LOGIN_PARTITION = 'persist:sonic-topography-netease-login';
 const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
@@ -19,6 +20,25 @@ const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
 
 let mainWindow = null;
 const windowDragState = new Map();
+
+function logMainProcessError(kind, error) {
+  const message = error?.stack || error?.message || String(error || '');
+  const line = `[${new Date().toISOString()}] ${kind}\n${message}\n\n`;
+  try {
+    fs.mkdirSync(path.dirname(mainLogPath), { recursive: true });
+    fs.appendFileSync(mainLogPath, line, 'utf8');
+  } catch {
+    // Logging must never become another startup failure.
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  logMainProcessError('uncaughtException', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logMainProcessError('unhandledRejection', reason);
+});
 
 for (const [name, value] of [
   ['autoplay-policy', 'no-user-gesture-required'],
@@ -395,6 +415,24 @@ async function startProductionServer() {
   await waitForHttp(appUrl);
 }
 
+function configureSystemAudioCapture() {
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    if (process.platform !== 'win32') {
+      callback({});
+      return;
+    }
+
+    desktopCapturer.getSources({ types: ['screen'] })
+      .then((sources) => {
+        callback({
+          video: sources[0],
+          audio: 'loopback',
+        });
+      })
+      .catch(() => callback({}));
+  }, { useSystemPicker: false });
+}
+
 async function createWindow() {
   if (!isDev) await startProductionServer();
 
@@ -474,7 +512,10 @@ ipcMain.handle('sonic-open-update-installer', async (_event, filePath) => {
   return error ? { ok: false, error } : { ok: true };
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  configureSystemAudioCapture();
+  return createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

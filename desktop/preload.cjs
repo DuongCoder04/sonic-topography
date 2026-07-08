@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('sonicDesktop', {
   isDesktop: true,
+  platform: process.platform,
+  supportsSystemAudioLoopback: process.platform === 'win32',
   minimize: () => ipcRenderer.invoke('sonic-window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('sonic-window-toggle-maximize'),
   close: () => ipcRenderer.invoke('sonic-window-close'),

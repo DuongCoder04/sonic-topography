@@ -7,6 +7,7 @@ import {
   normalizeBeatDetectorSettings,
   type BeatDetectorSettings,
 } from './beatDetector';
+import type { AudioInputMode } from './audioInput';
 
 export type TriggerPreset = 'Auto Beat' | 'Advanced';
 
@@ -78,10 +79,13 @@ export class TriggerConfig {
 export class AudioEngine {
   private audioCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
-  private source: MediaElementAudioSourceNode | null = null;
+  private source: MediaElementAudioSourceNode | MediaStreamAudioSourceNode | null = null;
+  private mediaElementSource: MediaElementAudioSourceNode | null = null;
+  private activeStream: MediaStream | null = null;
   private fadeNode: GainNode | null = null;
   private userVolumeNode: GainNode | null = null;
   private userVolumeValue: number = 1;
+  private inputMode: AudioInputMode = 'player';
   public audioElement: HTMLAudioElement;
 
   private dataArray: Uint8Array = new Uint8Array(512);
@@ -165,16 +169,45 @@ export class AudioEngine {
     this.userVolumeNode = this.audioCtx.createGain();
     this.userVolumeNode.gain.value = this.userVolumeValue;
     
-    this.source = this.audioCtx.createMediaElementSource(this.audioElement);
-    this.source.connect(this.fadeNode);
-    
-    // Also feed to analyser (before user volume)
-    this.fadeNode.connect(this.analyser);
-    
-    this.fadeNode.connect(this.userVolumeNode);
-    this.userVolumeNode.connect(this.audioCtx.destination);
+    this.mediaElementSource = this.audioCtx.createMediaElementSource(this.audioElement);
+    this.connectPlayerSource();
     
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+  }
+
+  private disconnectSource() {
+    try {
+      this.source?.disconnect();
+    } catch {
+      // Some Web Audio implementations throw when a node is already disconnected.
+    }
+    this.source = null;
+  }
+
+  private disconnectPlayerChain() {
+    try {
+      this.fadeNode?.disconnect();
+    } catch {}
+    try {
+      this.userVolumeNode?.disconnect();
+    } catch {}
+  }
+
+  private connectPlayerSource() {
+    if (!this.audioCtx || !this.mediaElementSource || !this.fadeNode || !this.userVolumeNode || !this.analyser) return;
+    this.disconnectSource();
+    this.disconnectPlayerChain();
+    this.source = this.mediaElementSource;
+    this.source.connect(this.fadeNode);
+    this.fadeNode.connect(this.analyser);
+    this.fadeNode.connect(this.userVolumeNode);
+    this.userVolumeNode.connect(this.audioCtx.destination);
+    this.inputMode = 'player';
+  }
+
+  private stopActiveStream() {
+    this.activeStream?.getTracks().forEach((track) => track.stop());
+    this.activeStream = null;
   }
 
   public setVolume(val: number) {
@@ -189,6 +222,7 @@ export class AudioEngine {
   }
 
   public loadFile(file: File) {
+    this.stopExternalInput();
     this.beginVisualRelease();
     const url = URL.createObjectURL(file);
     this.audioElement.src = url;
@@ -196,12 +230,42 @@ export class AudioEngine {
   }
 
   public loadUrl(url: string) {
+    this.stopExternalInput();
     this.beginVisualRelease();
     this.audioElement.src = url;
     this.audioElement.load();
   }
 
+  public loadStream(stream: MediaStream, mode: Exclude<AudioInputMode, 'player'>) {
+    this.init();
+    if (!this.audioCtx || !this.analyser) return;
+    this.pause();
+    this.stopActiveStream();
+    this.disconnectSource();
+    this.disconnectPlayerChain();
+    this.activeStream = stream;
+    this.source = this.audioCtx.createMediaStreamSource(stream);
+    this.source.connect(this.analyser);
+    this.inputMode = mode;
+    this.isPlaying = true;
+    this.beginVisualRelease();
+  }
+
+  public stopExternalInput() {
+    if (this.inputMode === 'player' && !this.activeStream) return;
+    this.stopActiveStream();
+    this.disconnectSource();
+    this.connectPlayerSource();
+    this.isPlaying = false;
+    this.beginVisualRelease();
+  }
+
+  public getInputMode(): AudioInputMode {
+    return this.inputMode;
+  }
+
   public play() {
+    if (this.inputMode !== 'player') return;
     if (!this.audioElement.src) return;
     if (this.audioCtx?.state === 'suspended') {
       this.audioCtx.resume();
@@ -222,6 +286,10 @@ export class AudioEngine {
   }
 
   public pause() {
+    if (this.inputMode !== 'player') {
+      this.stopExternalInput();
+      return;
+    }
     this.beginVisualRelease();
     if (this.fadeNode && this.audioCtx) {
        this.fadeNode.gain.cancelScheduledValues(this.audioCtx.currentTime);

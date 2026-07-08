@@ -10,6 +10,7 @@ import {
   neteasePlayableUrlCacheKey,
   normalizeNeteaseBitrate,
 } from './server/netease-playback.mjs';
+import { streamNeteaseAudioResponse } from './server/netease-audio-proxy.mjs';
 import {
   NETEASE_MAX_PLAYLISTS,
   NETEASE_MAX_PLAYLIST_TRACK_LIMIT,
@@ -569,43 +570,13 @@ function neteaseApiPlugin() {
           if (req.headers.range) headers.Range = req.headers.range;
 
           const audioResponse = await fetch(playableUrl, { headers });
-          res.statusCode = audioResponse.status;
-          ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach((header) => {
-            const value = audioResponse.headers.get(header);
-            if (value) res.setHeader(header, value);
-          });
-
-          if (!res.getHeader('Content-Type')) res.setHeader('Content-Type', 'audio/mpeg');
-          if (audioResponse.body) {
-            const reader = audioResponse.body.getReader();
-            const pump = async () => {
-              try {
-                if (req.destroyed || res.destroyed) {
-                  reader.cancel().catch(() => {});
-                  return;
-                }
-                const { done, value } = await reader.read();
-                if (done) {
-                  if (!res.destroyed) res.end();
-                  return;
-                }
-                res.write(Buffer.from(value), (err) => {
-                  if (err) reader.cancel().catch(() => {});
-                  else pump();
-                });
-              } catch (err) {
-                if (!res.destroyed) res.end();
-              }
-            };
-            req.on('close', () => {
-              reader.cancel().catch(() => {});
-            });
-            pump();
-          } else {
+          await streamNeteaseAudioResponse(req, res, audioResponse);
+        } catch (error) {
+          if (!res.headersSent) {
+            writeJson(res, 500, { error: 'Netease audio proxy failed' });
+          } else if (!res.destroyed && !res.writableEnded) {
             res.end();
           }
-        } catch (error) {
-          writeJson(res, 500, { error: 'Netease audio proxy failed' });
         }
       });
     },

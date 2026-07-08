@@ -4,6 +4,8 @@ declare global {
   interface Window {
     sonicDesktop?: {
       isDesktop: true;
+      platform?: NodeJS.Platform;
+      supportsSystemAudioLoopback?: boolean;
       minimize: () => Promise<void>;
       toggleMaximize: () => Promise<{ maximized: boolean }>;
       close: () => Promise<void>;

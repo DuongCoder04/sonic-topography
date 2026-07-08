@@ -8,6 +8,7 @@ import {
   neteasePlayableUrlCacheKey,
   normalizeNeteaseBitrate,
 } from './server/netease-playback.mjs';
+import { streamNeteaseAudioResponse } from './server/netease-audio-proxy.mjs';
 import {
   NETEASE_MAX_PLAYLISTS,
   NETEASE_MAX_PLAYLIST_TRACK_LIMIT,
@@ -537,29 +538,13 @@ app.get('/api/netease/audio', async (req, res) => {
     if (req.headers.range) headers.Range = req.headers.range;
 
     const audioResponse = await fetch(playableUrl, { headers });
-    res.status(audioResponse.status);
-    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach((header) => {
-      const value = audioResponse.headers.get(header);
-      if (value) res.setHeader(header, value);
-    });
-
-    if (!res.getHeader('Content-Type')) res.setHeader('Content-Type', 'audio/mpeg');
-    if (audioResponse.body) {
-      const reader = audioResponse.body.getReader();
-      const pump = async () => {
-        const { done, value } = await reader.read();
-        if (done) {
-          res.end();
-          return;
-        }
-        res.write(Buffer.from(value), pump);
-      };
-      pump();
-    } else {
+    await streamNeteaseAudioResponse(req, res, audioResponse);
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Netease audio proxy failed' });
+    } else if (!res.destroyed && !res.writableEnded) {
       res.end();
     }
-  } catch (error) {
-    res.status(500).json({ error: 'Netease audio proxy failed' });
   }
 });
 
