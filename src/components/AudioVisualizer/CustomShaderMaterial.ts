@@ -31,6 +31,7 @@ const terrainFragmentShader = `
     varying vec3 vNormal;
     varying float vRelativeY;
     varying vec2 vInstancePos;
+    varying float vInstanceRandom;
 
     float random(vec2 st) {
       return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
@@ -40,7 +41,10 @@ const terrainFragmentShader = `
       bool isTop = vNormal.y > 0.5;
       float distFromTop = 1.0 - vRelativeY;
       
-      float rnd = random(vInstancePos);
+      // Reuse the per-instance hash calculated in the vertex shader. Hashing an
+      // interpolated instance position per fragment can amplify tiny GPU-specific
+      // precision differences into visible speckling across an otherwise flat face.
+      float rnd = vInstanceRandom;
       float centerDist = length(vInstancePos);
       
       float normElevation = clamp(vElevation / 8.0, 0.0, 1.0);
@@ -216,6 +220,7 @@ export const MapShaderMaterial = shaderMaterial(
     varying vec3 vNormal;
     varying float vRelativeY;
     varying vec2 vInstancePos;
+    varying float vInstanceRandom;
 
     // Simplex noise
     vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -253,6 +258,7 @@ export const MapShaderMaterial = shaderMaterial(
       vDistance = centerDist;
       
       float rnd = random(pos2D);
+      vInstanceRandom = rnd;
       
       // 1. Idle Background state (smooth, ocean-like)
       vec2 movingPos = pos2D * 0.05 + vec2(uTime * 0.1, uTime * 0.05);
