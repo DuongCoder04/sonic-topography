@@ -1,5 +1,13 @@
 # Sonic Topography
 
+## 匿名使用统计
+
+Sonic Topography 桌面应用会在启动时、运行期间每分钟一次以及正常退出时，向作者管理的阿里云日志服务发送少量匿名使用记录。该统计目前默认开启，用于计算每日活跃安装量、版本采用情况、近似在线会话数和单次使用时长。
+
+上报字段严格限制为：本机随机生成的安装标识、本次启动随机生成的会话标识、事件类型、应用版本、操作系统大类（`win32` 或 `darwin`）、CPU 架构、是否首次启动，以及正常退出时的会话时长。安装标识不来自用户账号、系统用户名、MAC 地址、硬件序列号或其他设备身份；重新安装应用或删除本地应用数据后会生成新标识。
+
+Sonic Topography **不会**上报歌曲或艺人名称、歌单、本地文件名或路径、网易云/QQ 音乐账号、Cookie 或登录状态、麦克风或系统音频内容、屏幕内容、错误信息及其他自由文本。完整上报地址和字段白名单集中在 [`desktop/analytics.js`](./desktop/analytics.js)，可直接审阅。日志库已关闭公网 IP 记录，原始事件保留 90 天。
+
 中文 | [English](./README.en.md)
 
 [下载最新版 Release](https://github.com/yin-yizhen/sonic-topography/releases/tag/1.1.1) | [Windows 版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-Setup.exe) | [macOS Apple 芯片版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-mac-arm64.dmg) | [macOS Intel 芯片版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-mac-x64.dmg)

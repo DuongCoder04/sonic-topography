@@ -9,6 +9,7 @@ Last fully verified commit: `unknown`
 | Goal | Main files | Tests | Verification |
 | --- | --- | --- | --- |
 | Electron shell, window chrome, login bridge, installer config | `desktop/main.js`, `desktop/preload.cjs`, `scripts/dev-electron.mjs`, `package.json` | `src/lib/neteaseCookie.test.ts`, `src/lib/qqCookie.test.ts` | `npm run dev:electron`, `npm run build:electron:dir`, `npm run build:electron` |
+| Anonymous desktop usage analytics | `desktop/analytics.js`, `desktop/main.js`, `README.md`, `README.en.md` | `desktop/analytics.test.mjs` | `node desktop/analytics.test.mjs`, `npm run lint`, `npm run build:electron:dir`, verify open/heartbeat/close events in SLS |
 | Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npm run lint`, `npm run build`, `npm run dev:electron` |
 | Language switching and UI copy | `src/lib/i18n.ts`, `src/lib/locales.ts`, `src/components/UI/UI.tsx` | none dedicated yet | `npm run lint`, `npm run build`, manual zh/en toggle check in Electron |
 | Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/neteaseAudioProxy.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
@@ -21,6 +22,15 @@ Last fully verified commit: `unknown`
 | Audio analysis, realtime kick detector, audio debugger, ground effects mixer, terrain density, platter rotation, floating blocks, 3D terrain, factory camera, and 3D lyrics | `src/lib/AudioEngine.ts`, `src/lib/beatDetector.ts`, `src/lib/kickEnvelope.ts`, `src/components/AudioDebugger/AudioDebugger.tsx`, `src/lib/groundEqSettings.ts`, `src/lib/sceneDefaults.ts`, `src/lib/lyricsSettings.ts`, `src/lib/lyricLineWrapping.ts`, `src/lib/terrainResponse.ts`, `src/components/AudioVisualizer/MapScene.tsx`, `src/components/AudioVisualizer/SpatialLyrics3D.tsx`, `src/components/AudioVisualizer/CustomShaderMaterial.ts` | `src/lib/audioFrameCache.test.ts`, `src/lib/beatDetector.test.ts`, `src/lib/kickEnvelope.test.ts`, `src/lib/groundEqSettings.test.ts`, `src/lib/sceneDefaults.test.ts`, `src/lib/lyricsSettings.test.ts`, `src/lib/lyricLineWrapping.test.ts`, `src/lib/terrainResponse.test.ts`, `src/lib/presetTransfer.test.ts`, `src/lib/scenePlatterRotation.test.ts`, `src/lib/spatialLyricsScene.test.ts` | `npx tsx src/lib/audioFrameCache.test.ts`, `npx tsx src/lib/beatDetector.test.ts`, `npx tsx src/lib/kickEnvelope.test.ts`, `npx tsx src/lib/groundEqSettings.test.ts`, `npx tsx src/lib/sceneDefaults.test.ts`, `npx tsx src/lib/lyricsSettings.test.ts`, `npx tsx src/lib/lyricLineWrapping.test.ts`, `npx tsx src/lib/terrainResponse.test.ts`, `npx tsx src/lib/presetTransfer.test.ts`, `npx tsx src/lib/scenePlatterRotation.test.ts`, `npx tsx src/lib/spatialLyricsScene.test.ts`, `npm run lint`, `npm run build`, manual Debugger playback in Electron/browser |
 
 ## End-To-End Flow
+
+```text
+Electron window loads successfully
+-> desktop/main.js calls analytics.init()
+-> desktop/analytics.js persists a random installation ID under app userData
+-> app_open is sent once, app_heartbeat every 60 seconds
+-> before-quit sends a best-effort app_close with duration_seconds
+-> Alibaba Cloud SLS sonic-analysis/sonic-event stores the fixed field whitelist for 90 days
+```
 
 ```text
 npm run dev:electron
@@ -92,6 +102,16 @@ App update flow
 ```
 
 ## Code Map
+
+### Anonymous Usage Analytics
+
+`desktop/analytics.js`
+
+Owns the fixed SLS endpoint, anonymous installation/session IDs, event whitelist, heartbeat timer, and best-effort normal-close event. It must remain isolated from renderer IPC, music/account state, Cookies, filenames, paths, error text, and all other free-form data. Public-IP recording must remain disabled in the SLS Logstore. `app_close` can be absent after crashes or forced termination; use the last heartbeat as the session fallback in analysis.
+
+`desktop/analytics.test.mjs`
+
+Verifies the exact transmitted field whitelist, one-minute heartbeat, duration calculation, single close event, and local anonymous-ID persistence.
 
 ### App Updates
 

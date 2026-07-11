@@ -87,6 +87,14 @@ In a normal browser dev page, QR login is unavailable. Manual Cookie inputs rema
 
 Cookies are sensitive login credentials and are stored only on your machine. Do not export, upload, or share them.
 
+## Anonymous Usage Statistics
+
+Sonic Topography sends a small anonymous usage record to an author-managed Alibaba Cloud Simple Log Service project when the desktop app opens, once per minute while it remains open, and when it closes normally. Collection is currently enabled by default so the author can measure daily active installations, release adoption, approximate concurrent sessions, and session duration.
+
+The payload is restricted to a locally generated random installation ID, a random ID for the current app session, event type, app version, operating-system family (`win32` or `darwin`), CPU architecture, first-launch status, and normal-close session duration. The installation ID is not derived from a user account, system username, MAC address, hardware serial number, or another device identifier. Reinstalling the app or deleting its local data creates a new ID.
+
+Sonic Topography does **not** send music or artist names, playlists, local filenames or paths, Netease/QQ Music accounts, Cookies or login state, microphone or system-audio contents, screen contents, error messages, or other free-form text. Analytics is isolated in [`desktop/analytics.js`](./desktop/analytics.js), where the complete endpoint and field list can be reviewed. Public-IP recording is disabled for the Logstore, and raw events are retained for 90 days.
+
 ## Preset Import And Export
 
 Settings can import or export presets. Presets are useful when moving your visual setup between machines.

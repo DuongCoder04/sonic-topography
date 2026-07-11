@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createAnalytics } from './analytics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,7 @@ const appUrl = process.env.SONIC_ELECTRON_DEV_URL || `http://127.0.0.1:${process
 const updateDownloadDir = path.join(app.getPath('userData'), 'updates', 'downloads');
 const dataDir = path.join(app.getPath('userData'), 'data');
 const mainLogPath = path.join(app.getPath('userData'), 'logs', 'main.log');
+const analytics = createAnalytics({ app });
 
 const NETEASE_LOGIN_PARTITION = 'persist:sonic-topography-netease-login';
 const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
@@ -512,9 +514,10 @@ ipcMain.handle('sonic-open-update-installer', async (_event, filePath) => {
   return error ? { ok: false, error } : { ok: true };
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configureSystemAudioCapture();
-  return createWindow();
+  await createWindow();
+  analytics.init();
 });
 
 app.on('window-all-closed', () => {
