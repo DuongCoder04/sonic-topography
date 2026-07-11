@@ -10,7 +10,7 @@ Last fully verified commit: `unknown`
 | --- | --- | --- | --- |
 | Electron shell, window chrome, login bridge, installer config | `desktop/main.js`, `desktop/preload.cjs`, `scripts/dev-electron.mjs`, `package.json` | `src/lib/neteaseCookie.test.ts`, `src/lib/qqCookie.test.ts` | `npm run dev:electron`, `npm run build:electron:dir`, `npm run build:electron` |
 | Anonymous desktop usage analytics | `desktop/analytics.js`, `desktop/main.js`, `README.md`, `README.en.md` | `desktop/analytics.test.mjs` | `node desktop/analytics.test.mjs`, `npm run lint`, `npm run build:electron:dir`, verify open/heartbeat/close events in SLS |
-| Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npm run lint`, `npm run build`, `npm run dev:electron` |
+| Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/playMode.test.ts`, `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npx tsx src/lib/playMode.test.ts`, `npm run lint`, `npm run build`, `npm run dev:electron` |
 | Language switching and UI copy | `src/lib/i18n.ts`, `src/lib/locales.ts`, `src/components/UI/UI.tsx` | none dedicated yet | `npm run lint`, `npm run build`, manual zh/en toggle check in Electron |
 | Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/neteaseAudioProxy.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
 | Netease API, cookies, liked songs, playlists, daily recommendations | `vite.config.ts`, `local-server.mjs`, `server/netease-library.mjs`, `src/lib/neteaseCookie.ts` | `src/lib/neteaseCookie.test.ts`, `src/lib/neteasePlaylist.test.ts` | `npx tsx src/lib/neteaseCookie.test.ts`, `npx tsx src/lib/neteasePlaylist.test.ts`, `npm run build` |
@@ -96,9 +96,12 @@ App update flow
 -> UI shows update prompt unless the same latestVersion was skipped
 -> user clicks update
 -> /api/update/download creates a job with GitHub direct URL plus configured mirrors
+-> packaged Electron injects net.fetch so update traffic follows Chromium/system proxy settings
 -> server streams the selected channel to disk and updates job.received per chunk
+-> completed files must match the Release asset size and have a Windows MZ header
 -> /api/update/download/status drives UI progress
 -> desktop/main.js opens the downloaded installer through window.sonicDesktop.openUpdateInstaller()
+-> if every channel or installer launch fails, UI can open the allowlisted official GitHub Release page
 ```
 
 ## Code Map
@@ -117,7 +120,7 @@ Verifies the exact transmitted field whitelist, one-minute heartbeat, duration c
 
 `server/update-service.mjs`
 
-Owns GitHub latest Release checks, installer asset selection, download job state, mirrored download URL generation, streaming download progress, and fallback across channels. Keep downloads streaming; using `response.arrayBuffer()` makes the UI stay at 0 until the full installer finishes. Public mirrors are third-party and unstable, so direct GitHub must remain first and mirror failures must fall through to the next candidate.
+Owns GitHub latest Release checks, installer asset selection, download job state, mirrored download URL generation, streaming progress, installer size/MZ validation, stale partial cleanup, per-channel failure logging, and fallback. Packaged mode injects Electron `net.fetch` from `desktop/main.js`; do not replace global fetch because music APIs must remain unaffected. Update diagnostics are written to `<userData>/logs/update.log`. Public mirrors are third-party and unstable, so direct GitHub remains first and failures fall through quickly.
 
 `src/components/UI/UI.tsx`
 
@@ -136,6 +139,10 @@ Main interaction surface. Owns sidebar, search, cloud music panel, account login
 `src/lib/playbackQuality.ts`
 
 Stores global cloud playback quality settings. Defaults preserve the old behavior: QQ `exhigh` / 320k MP3 and Netease `320000`. `UI.loadNeteaseSong()` and last-played preload must use `buildQQPlaybackUrl()` / `buildNeteasePlaybackUrl()` so `/api/qq/*` receives `quality` and `/api/netease/*` receives `br`.
+
+`src/lib/playMode.ts`
+
+Defines the player mode cycle: queue repeat -> shuffle -> repeat one. Repeat one maps to `HTMLAudioElement.loop`; manual previous/next actions still traverse the queue.
 
 `src/lib/i18n.ts`
 
@@ -308,6 +315,7 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 | --- | --- |
 | `src/lib/neteasePlaylist.test.ts` | Netease playlist `trackIds` completeness, track detail merging, playlist limit parsing |
 | `src/lib/playbackQuality.test.ts` | Playback quality defaults, normalization, localStorage persistence, QQ/Netease playback URL parameters |
+| `src/lib/playMode.test.ts` | Playback-mode cycle order and repeat-one detection |
 | `src/lib/neteasePlayback.test.ts` | Netease playback bitrate normalization, upstream player URL construction, playable URL cache key bitrate separation |
 | `src/lib/neteaseAudioProxy.test.ts` | Netease audio proxy streaming headers, normal chunk completion, client-close reader cancellation, and reader-error response ending |
 | `src/lib/audioInput.test.ts` | Local audio input device normalization and AudioEngine media-stream source switching/track cleanup |
@@ -386,12 +394,12 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 
 ### Change App Updates
 
-1. Update `server/update-service.mjs` for GitHub Release metadata, installer asset selection, mirror candidates, download streaming, fallback, or status payload changes.
+1. Update `server/update-service.mjs` for GitHub Release metadata, installer asset selection, mirror candidates, download streaming, validation, fallback, or status payload changes.
 2. Update `src/components/UI/UI.tsx` for startup checks, the update prompt, Release notes display, skip-version behavior, and download progress UI.
 3. Update `src/lib/updatePrompt.ts` if skipped-version storage or prompt suppression semantics change.
 4. Keep `package.json` `version` and `sonicTopography.update.downloadMirrors` aligned with the release you plan to ship.
 5. Run `npx tsx src/lib/updateSource.test.ts`, `npx tsx src/lib/updatePrompt.test.ts`, `npx tsx server/update-service.test.mjs`, `npm run lint`, `npm run build`, and `npm run build:electron:dir`.
-6. For real acceptance, publish or simulate a higher GitHub Release with a setup `.exe`, verify the startup prompt shows Release notes, verify "next time" and "skip this version", then trigger a download and confirm progress increments before completion. To test fallback, make the first channel fail and confirm a mirror channel is selected.
+6. For real acceptance, publish or simulate a higher GitHub Release with a setup `.exe`, verify the startup prompt and progress, proxy/TUN behavior, first-channel fallback, stale `.download` cleanup, installer launch, and the allowlisted browser fallback after all channels fail. Inspect `<userData>/logs/update.log` for the channel/status/byte trail.
 
 ### Change Local Audio Inputs
 
@@ -443,6 +451,7 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 ```powershell
 npx tsx src/lib/neteasePlaylist.test.ts
 npx tsx src/lib/playbackQuality.test.ts
+npx tsx src/lib/playMode.test.ts
 npx tsx src/lib/neteasePlayback.test.ts
 npx tsx src/lib/neteaseAudioProxy.test.ts
 npx tsx src/lib/audioInput.test.ts

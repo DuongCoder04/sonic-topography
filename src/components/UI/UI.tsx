@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Volume2, SkipForward, SkipBack, Palette, Plus, ListMusic, Shuffle, Repeat, Trash2, Minus, Square, X, Search, Lock, Unlock, Menu, Settings, Pin, ChevronDown, ChevronUp, Mic } from 'lucide-react';
+import { Play, Pause, Volume2, SkipForward, SkipBack, Palette, Plus, ListMusic, Shuffle, Repeat, Repeat1, Trash2, Minus, Square, X, Search, Lock, Unlock, Menu, Settings, Pin, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { engine } from '../../lib/AudioEngine';
 import { BUILT_IN_THEME_IDS, CUSTOM_THEME_ID, createCustomThemePreset, themes, type CustomThemeSettings, type ThemeColors, type ThemeRotationSettings } from '../../lib/themes';
 import {
@@ -82,6 +82,7 @@ import {
   shouldShowUpdatePrompt,
   writeSkippedUpdateVersionStorage,
 } from '../../lib/updatePrompt';
+import { isRepeatOneMode, nextPlayMode, type PlayMode } from '../../lib/playMode';
 
 interface UIProps {
   theme: string;
@@ -139,7 +140,6 @@ interface NeteasePlaylistSummary {
   isFavorite?: boolean;
 }
 
-type PlayMode = 'sequence' | 'shuffle';
 type OptionsTab = 'Pulse' | 'Meteor' | 'FloatingBlocks' | 'GroundEq' | 'Color' | 'Audio' | 'Account' | 'Lyrics' | 'Display';
 type NeteaseCloudTab = 'liked' | 'playlists' | 'daily';
 type CloudProvider = 'netease' | 'qq';
@@ -173,7 +173,10 @@ interface UpdateDownloadJob {
   total?: number;
   filePath?: string;
   error?: string;
+  errorCode?: string;
+  releaseUrl?: string;
   channelName?: string;
+  attempts?: Array<{ name?: string; status?: string; error?: string; errorCode?: string; httpStatus?: number }>;
 }
 
 const PLAYLIST_STORAGE_KEY = 'sonic-topography-playlists-v1';
@@ -538,6 +541,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdateInfo | null>(null);
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [downloadJob, setDownloadJob] = useState<UpdateDownloadJob | null>(null);
+  const [showUpdateReleaseFallback, setShowUpdateReleaseFallback] = useState(false);
   const [skippedUpdateVersion, setSkippedUpdateVersion] = useState(readSkippedUpdateVersionStorage);
   const [isMobileSideNavOpen, setIsMobileSideNavOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -903,6 +907,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       }
       setAvailableUpdate(data);
       setDownloadJob(null);
+      setShowUpdateReleaseFallback(false);
       setUpdateStatus(`发现新版本 ${data.latestVersion}`);
       if (options.manual || shouldShowUpdatePrompt(data.latestVersion, skippedUpdateVersion)) {
         setShowUpdatePrompt(true);
@@ -917,6 +922,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
   const startUpdateDownload = async () => {
     clearUpdatePollTimer();
+    setShowUpdateReleaseFallback(false);
     setUpdateStatus(t('ui.text.30', lang));
     try {
       const downloadResponse = await fetch('/api/update/download', { method: 'POST' });
@@ -937,12 +943,20 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           }
           setDownloadJob(job);
           if (job.status === 'ready') {
+            if (window.sonicDesktop?.isDesktop && job.filePath) {
+              const result = await window.sonicDesktop.openUpdateInstaller(job.filePath);
+              if (!result?.ok) {
+                setUpdateStatus(`${t('ui.text.344', lang)}${result?.error ? `: ${result.error}` : ''}`);
+                setShowUpdateReleaseFallback(true);
+                return;
+              }
+            }
             setUpdateStatus(t('ui.text.33', lang));
-            if (window.sonicDesktop?.isDesktop && job.filePath) await window.sonicDesktop.openUpdateInstaller(job.filePath);
             return;
           }
           if (job.status === 'failed') {
-            setUpdateStatus(job.error || t('ui.text.34', lang));
+            setUpdateStatus(t('ui.text.343', lang));
+            setShowUpdateReleaseFallback(true);
             return;
           }
           const total = Number(job.total || 0);
@@ -961,6 +975,13 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       console.warn('Unable to start update download:', error);
       setUpdateStatus(t('ui.text.37', lang));
     }
+  };
+
+  const openUpdateRelease = async () => {
+    const releaseUrl = downloadJob?.releaseUrl || availableUpdate?.release?.htmlUrl || '';
+    if (!releaseUrl || !window.sonicDesktop?.isDesktop) return;
+    const result = await window.sonicDesktop.openUpdateRelease(releaseUrl);
+    if (!result?.ok) setUpdateStatus(`${t('ui.text.346', lang)}${result?.error ? `: ${result.error}` : ''}`);
   };
 
   const remindUpdateLater = () => {
@@ -1645,6 +1666,13 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       setLyricsText('');
     }
   };
+
+  useEffect(() => {
+    engine.audioElement.loop = isRepeatOneMode(playMode);
+    return () => {
+      engine.audioElement.loop = false;
+    };
+  }, [playMode]);
 
   useEffect(() => {
     const handleEnded = () => {
@@ -2828,12 +2856,20 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
                 <SkipForward size={16} />
               </button>
               <button
-                onClick={() => setPlayMode((mode) => mode === 'sequence' ? 'shuffle' : 'sequence')}
+                onClick={() => setPlayMode(nextPlayMode)}
                 className="hover:text-white transition-colors"
-                title={playMode === 'sequence' ? 'Sequence play' : 'Shuffle play'}
-                style={{ color: playMode === 'shuffle' ? accentHex : undefined }}
+                title={playMode === 'sequence'
+                  ? t('ui.text.340', lang)
+                  : playMode === 'shuffle'
+                    ? t('ui.text.341', lang)
+                    : t('ui.text.342', lang)}
+                style={{ color: playMode === 'sequence' ? undefined : accentHex }}
               >
-                {playMode === 'sequence' ? <Repeat size={14} /> : <Shuffle size={14} />}
+                {playMode === 'sequence'
+                  ? <Repeat size={14} />
+                  : playMode === 'shuffle'
+                    ? <Shuffle size={14} />
+                    : <Repeat1 size={14} />}
               </button>
           </div>
 
@@ -2910,6 +2946,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
           updateStatus={updateStatus}
           downloadJob={downloadJob}
           onDownload={startUpdateDownload}
+          showReleaseFallback={showUpdateReleaseFallback}
+          onOpenRelease={openUpdateRelease}
           onRemindLater={remindUpdateLater}
           onSkipVersion={skipThisUpdateVersion}
         />
@@ -4712,6 +4750,8 @@ function UpdatePromptModal({
   updateStatus,
   downloadJob,
   onDownload,
+  showReleaseFallback,
+  onOpenRelease,
   onRemindLater,
   onSkipVersion,
 }: {
@@ -4720,6 +4760,8 @@ function UpdatePromptModal({
   updateStatus: string;
   downloadJob: UpdateDownloadJob | null;
   onDownload: () => void | Promise<void>;
+  showReleaseFallback: boolean;
+  onOpenRelease: () => void | Promise<void>;
   onRemindLater: () => void;
   onSkipVersion: () => void;
 }) {
@@ -4784,6 +4826,14 @@ function UpdatePromptModal({
         </div>
 
         <div className="flex flex-wrap justify-end gap-2 border-t px-5 py-4" style={{ borderColor: colorWithAlpha(accentHex, 0.18) }}>
+          {showReleaseFallback && (
+            <button
+              onClick={onOpenRelease}
+              className="rounded-[10px] border border-white/10 px-4 py-2 text-[11px] tracking-[0.08em] text-white/70 hover:text-white"
+            >
+              {t('ui.text.345', lang)}
+            </button>
+          )}
           <button
             onClick={onSkipVersion}
             disabled={isDownloading}

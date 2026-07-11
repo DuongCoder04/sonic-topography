@@ -69,14 +69,6 @@
         {
           "name": "GHFast",
           "prefix": "https://ghfast.top/"
-        },
-        {
-          "name": "GH LLKK",
-          "prefix": "https://gh.llkk.cc/"
-        },
-        {
-          "name": "GitHubProxy",
-          "prefix": "https://githubproxy.net/"
         }
       ]
     }

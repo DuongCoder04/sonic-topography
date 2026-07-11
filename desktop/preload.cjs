@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('sonicDesktop', {
   openQQLogin: () => ipcRenderer.invoke('sonic-open-qq-login'),
   clearQQLogin: () => ipcRenderer.invoke('sonic-clear-qq-login'),
   openUpdateInstaller: (filePath) => ipcRenderer.invoke('sonic-open-update-installer', filePath),
+  openUpdateRelease: (releaseUrl) => ipcRenderer.invoke('sonic-open-update-release', releaseUrl),
 });
 
 window.addEventListener('DOMContentLoaded', () => {

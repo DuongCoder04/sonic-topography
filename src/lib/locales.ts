@@ -1354,5 +1354,33 @@ export const locales: Record<string, { zh: string; en: string }> = {
   "ui.text.339": {
     "zh": "特效强度",
     "en": "Effect Intensity"
+  },
+  "ui.text.340": {
+    "zh": "循环播放",
+    "en": "Repeat queue"
+  },
+  "ui.text.341": {
+    "zh": "随机播放",
+    "en": "Shuffle play"
+  },
+  "ui.text.342": {
+    "zh": "单曲循环",
+    "en": "Repeat one"
+  },
+  "ui.text.343": {
+    "zh": "应用内下载失败，请使用官方发布页下载。详情已写入更新日志。",
+    "en": "In-app download failed. Please use the official release page. Details were written to the update log."
+  },
+  "ui.text.344": {
+    "zh": "安装包已下载，但无法打开",
+    "en": "The installer was downloaded but could not be opened"
+  },
+  "ui.text.345": {
+    "zh": "在浏览器中下载",
+    "en": "Download in Browser"
+  },
+  "ui.text.346": {
+    "zh": "无法打开官方发布页",
+    "en": "Could not open the official release page"
   }
 };

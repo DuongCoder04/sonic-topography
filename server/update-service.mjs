@@ -9,10 +9,29 @@ const downloadJobs = new Map();
 const DEFAULT_DOWNLOAD_MIRRORS = [
   { name: 'GH Proxy', prefix: 'https://gh-proxy.com/' },
   { name: 'GHFast', prefix: 'https://ghfast.top/' },
-  { name: 'GH LLKK', prefix: 'https://gh.llkk.cc/' },
-  { name: 'GitHubProxy', prefix: 'https://githubproxy.net/' },
 ];
-const DEFAULT_DOWNLOAD_STALL_TIMEOUT_MS = 90000;
+const DEFAULT_DOWNLOAD_CONNECT_TIMEOUT_MS = 20000;
+const DEFAULT_DOWNLOAD_STALL_TIMEOUT_MS = 30000;
+let updateFetchImpl = (...args) => fetch(...args);
+let updateLogPath = '';
+
+export function configureUpdateService(options = {}) {
+  updateFetchImpl = typeof options.fetchImpl === 'function' ? options.fetchImpl : (...args) => fetch(...args);
+  updateLogPath = String(options.logPath || '').trim();
+}
+
+async function logUpdate(event, details = {}) {
+  if (!updateLogPath) return;
+  const safeDetails = { ...details };
+  delete safeDetails.url;
+  delete safeDetails.channelUrl;
+  try {
+    await fs.mkdir(path.dirname(updateLogPath), { recursive: true });
+    await fs.appendFile(updateLogPath, `${JSON.stringify({ at: new Date().toISOString(), event, ...safeDetails })}\n`, 'utf8');
+  } catch {
+    // Update logging must never interrupt an update attempt.
+  }
+}
 
 function normalizeVersion(value) {
   return String(value || '').trim().replace(/^v/i, '');
@@ -141,7 +160,7 @@ async function getLatestUpdate() {
   }
 
   const apiUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/releases/latest`;
-  const response = await fetch(apiUrl, {
+  const response = await updateFetchImpl(apiUrl, {
     headers: {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'SonicTopographyUpdater',
@@ -191,6 +210,8 @@ function jobPayload(job) {
     total: job.total,
     filePath: job.filePath,
     error: job.error,
+    errorCode: job.errorCode || '',
+    releaseUrl: job.releaseUrl || '',
     channelName: job.channelName || '',
     channelUrl: job.channelUrl || '',
     attempts: Array.isArray(job.attempts) ? job.attempts : [],
@@ -219,7 +240,11 @@ async function streamResponseToFile(response, filePath, job, options = {}) {
       const readResult = await Promise.race([
         reader.read(),
         new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('Download stalled with no incoming data')), stallTimeoutMs);
+          timeoutId = setTimeout(() => {
+            const error = new Error('Download stalled with no incoming data');
+            error.code = 'DOWNLOAD_STALLED';
+            reject(error);
+          }, stallTimeoutMs);
         }),
       ]).finally(() => clearTimeout(timeoutId));
       if (readResult.done) break;
@@ -243,8 +268,33 @@ async function streamResponseToFile(response, filePath, job, options = {}) {
   await fs.rename(tempFilePath, filePath);
 }
 
+async function validateInstaller(filePath, expectedSize) {
+  const stat = await fs.stat(filePath);
+  if (Number(expectedSize || 0) > 0 && stat.size !== Number(expectedSize)) {
+    const error = new Error(`Installer size mismatch: expected ${expectedSize}, received ${stat.size}`);
+    error.code = 'INSTALLER_SIZE_MISMATCH';
+    throw error;
+  }
+  const handle = await fs.open(filePath, 'r');
+  try {
+    const header = Buffer.alloc(2);
+    const { bytesRead } = await handle.read(header, 0, 2, 0);
+    if (bytesRead !== 2 || header[0] !== 0x4d || header[1] !== 0x5a) {
+      const error = new Error('Downloaded file is not a Windows installer');
+      error.code = 'INSTALLER_INVALID_FORMAT';
+      throw error;
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function prepareUpdateDownload(filePath) {
+  await fs.rm(`${filePath}.download`, { force: true }).catch(() => {});
+}
+
 export async function downloadJob(job, options = {}) {
-  const fetchImpl = options.fetchImpl || fetch;
+  const fetchImpl = options.fetchImpl || updateFetchImpl;
   const candidates = buildDownloadCandidates(job.downloadUrl, job.downloadMirrors);
   job.attempts = [];
   job.status = 'downloading';
@@ -265,37 +315,55 @@ export async function downloadJob(job, options = {}) {
       finishedAt: 0,
     };
     job.attempts.push(attempt);
+    await logUpdate('download_attempt_started', { jobId: job.id, channel: candidate.name });
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), Number(options.stallTimeoutMs || DEFAULT_DOWNLOAD_STALL_TIMEOUT_MS));
+      const timeoutId = setTimeout(() => controller.abort(), Number(options.connectTimeoutMs || DEFAULT_DOWNLOAD_CONNECT_TIMEOUT_MS));
       const response = await fetchImpl(candidate.url, {
         headers: { 'User-Agent': 'SonicTopographyUpdater' },
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId));
+      attempt.httpStatus = response.status;
       if (!response.ok) throw new Error(`Download failed: ${response.status}`);
       await streamResponseToFile(response, job.filePath, job, options);
+      await validateInstaller(job.filePath, job.expectedSize || job.total);
       attempt.status = 'ready';
       attempt.finishedAt = Date.now();
       job.status = 'ready';
       job.error = '';
       job.updatedAt = Date.now();
+      await logUpdate('download_ready', { jobId: job.id, channel: candidate.name, received: job.received, total: job.total });
       return;
     } catch (error) {
       attempt.status = 'failed';
       attempt.error = error.message || 'Download failed';
+      attempt.errorCode = error.code || (error.name === 'AbortError' ? 'DOWNLOAD_CONNECT_TIMEOUT' : 'DOWNLOAD_CHANNEL_FAILED');
       attempt.finishedAt = Date.now();
       job.error = attempt.error;
+      job.errorCode = attempt.errorCode;
       job.updatedAt = Date.now();
+      await logUpdate('download_attempt_failed', {
+        jobId: job.id,
+        channel: candidate.name,
+        httpStatus: attempt.httpStatus || 0,
+        errorCode: attempt.errorCode,
+        error: attempt.error,
+        received: job.received,
+        total: job.total,
+      });
+      await fs.rm(job.filePath, { force: true }).catch(() => {});
       await fs.rm(`${job.filePath}.download`, { force: true }).catch(() => {});
     }
   }
 
   job.status = 'failed';
+  job.errorCode = 'ALL_DOWNLOAD_CHANNELS_FAILED';
   job.error = job.attempts.length
     ? `All download channels failed: ${job.error || 'download failed'}`
     : 'No download channels available';
   job.updatedAt = Date.now();
+  await logUpdate('download_failed', { jobId: job.id, errorCode: job.errorCode, attempts: job.attempts.length });
 }
 
 async function startDownload() {
@@ -306,6 +374,8 @@ async function startDownload() {
 
   const id = `${latest.latestVersion}-${Date.now()}`;
   const name = safeFileName(latest.asset.name || `SonicTopography-${latest.latestVersion}-Setup.exe`);
+  const filePath = path.join(getDownloadDir(), name);
+  await prepareUpdateDownload(filePath);
   const job = {
     id,
     status: 'queued',
@@ -315,8 +385,11 @@ async function startDownload() {
     downloadMirrors: latest.downloadMirrors || [],
     received: 0,
     total: latest.asset.size || 0,
-    filePath: path.join(getDownloadDir(), name),
+    expectedSize: latest.asset.size || 0,
+    filePath,
     error: '',
+    errorCode: '',
+    releaseUrl: latest.release?.htmlUrl || '',
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

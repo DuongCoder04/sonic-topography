@@ -17,6 +17,7 @@ declare global {
       openQQLogin: () => Promise<{ ok?: boolean; cookie?: string; reused?: boolean; partial?: boolean; cancelled?: boolean; error?: string; message?: string }>;
       clearQQLogin: () => Promise<{ ok: boolean }>;
       openUpdateInstaller: (filePath: string) => Promise<{ ok?: boolean; error?: string }>;
+      openUpdateRelease: (releaseUrl: string) => Promise<{ ok?: boolean; error?: string }>;
     };
   }
 }

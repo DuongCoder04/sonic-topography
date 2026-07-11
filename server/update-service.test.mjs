@@ -4,8 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   buildDownloadCandidates,
+  configureUpdateService,
   downloadJob,
   normalizeDownloadMirrors,
+  prepareUpdateDownload,
 } from './update-service.mjs';
 
 const githubUrl = 'https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.2/SonicTopography-1.1.2-Setup.exe';
@@ -30,6 +32,8 @@ assert.deepEqual(buildDownloadCandidates('https://example.com/file.exe', [{ name
 ]);
 
 const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sonic-update-test-'));
+const updateLogPath = path.join(tmpDir, 'update.log');
+configureUpdateService({ logPath: updateLogPath });
 const filePath = path.join(tmpDir, 'update.exe');
 const attempts = [];
 
@@ -48,7 +52,7 @@ const job = {
   updatedAt: Date.now(),
 };
 
-const firstChunk = new Uint8Array([1, 2, 3]);
+const firstChunk = new Uint8Array([0x4d, 0x5a, 3]);
 const secondChunk = new Uint8Array([4, 5]);
 const progress = [];
 
@@ -89,7 +93,7 @@ assert.equal(job.total, 5);
 assert.equal(job.channelName, 'Mirror');
 assert.equal(attempts.length, 2);
 assert.deepEqual(progress, [3, 5]);
-assert.equal(await fs.readFile(filePath, 'utf8'), '\u0001\u0002\u0003\u0004\u0005');
+assert.deepEqual([...await fs.readFile(filePath)], [0x4d, 0x5a, 3, 4, 5]);
 
 const failedJob = {
   ...job,
@@ -108,5 +112,50 @@ await downloadJob(failedJob, {
 
 assert.equal(failedJob.status, 'failed');
 assert.match(failedJob.error, /All download channels failed/);
+assert.equal(failedJob.errorCode, 'ALL_DOWNLOAD_CHANNELS_FAILED');
+const updateLog = await fs.readFile(updateLogPath, 'utf8');
+assert.match(updateLog, /download_attempt_started/);
+assert.match(updateLog, /download_attempt_failed/);
+assert.match(updateLog, /download_failed/);
+
+const invalidInstallerJob = {
+  ...job,
+  id: 'invalid-installer-job',
+  status: 'queued',
+  received: 0,
+  total: 4,
+  expectedSize: 4,
+  downloadMirrors: [],
+  filePath: path.join(tmpDir, 'invalid.exe'),
+  error: '',
+};
+await downloadJob(invalidInstallerJob, {
+  fetchImpl: async () => new Response('<h1>', { status: 200, headers: { 'content-length': '4' } }),
+});
+assert.equal(invalidInstallerJob.status, 'failed');
+assert.equal(invalidInstallerJob.attempts[0].errorCode, 'INSTALLER_INVALID_FORMAT');
+assert.equal(await fs.stat(invalidInstallerJob.filePath).then(() => true, () => false), false);
+
+const truncatedInstallerJob = {
+  ...job,
+  id: 'truncated-installer-job',
+  status: 'queued',
+  received: 0,
+  total: 10,
+  expectedSize: 10,
+  downloadMirrors: [],
+  filePath: path.join(tmpDir, 'truncated.exe'),
+  error: '',
+};
+await downloadJob(truncatedInstallerJob, {
+  fetchImpl: async () => new Response(new Uint8Array([0x4d, 0x5a, 1]), { status: 200 }),
+});
+assert.equal(truncatedInstallerJob.status, 'failed');
+assert.equal(truncatedInstallerJob.attempts[0].errorCode, 'INSTALLER_SIZE_MISMATCH');
+
+const staleTarget = path.join(tmpDir, 'stale.exe');
+await fs.writeFile(`${staleTarget}.download`, 'partial');
+await prepareUpdateDownload(staleTarget);
+assert.equal(await fs.stat(`${staleTarget}.download`).then(() => true, () => false), false);
 
 console.log('update service tests passed');

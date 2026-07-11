@@ -1,9 +1,10 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, net, session, shell } from 'electron';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createAnalytics } from './analytics.js';
+import { configureUpdateService } from '../server/update-service.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,7 @@ const appUrl = process.env.SONIC_ELECTRON_DEV_URL || `http://127.0.0.1:${process
 const updateDownloadDir = path.join(app.getPath('userData'), 'updates', 'downloads');
 const dataDir = path.join(app.getPath('userData'), 'data');
 const mainLogPath = path.join(app.getPath('userData'), 'logs', 'main.log');
+const updateLogPath = path.join(app.getPath('userData'), 'logs', 'update.log');
 const analytics = createAnalytics({ app });
 
 const NETEASE_LOGIN_PARTITION = 'persist:sonic-topography-netease-login';
@@ -413,6 +415,7 @@ async function startProductionServer() {
   process.env.PORT = process.env.PORT || '45437';
   process.env.SONIC_UPDATE_DOWNLOAD_DIR = updateDownloadDir;
   process.env.SONIC_DATA_DIR = dataDir;
+  configureUpdateService({ fetchImpl: (...args) => net.fetch(...args), logPath: updateLogPath });
   await import(pathToFileURL(path.join(appRoot, 'local-server.mjs')).href);
   await waitForHttp(appUrl);
 }
@@ -518,6 +521,19 @@ app.whenReady().then(async () => {
   configureSystemAudioCapture();
   await createWindow();
   analytics.init();
+});
+ipcMain.handle('sonic-open-update-release', async (_event, releaseUrl) => {
+  try {
+    const target = new URL(String(releaseUrl || ''));
+    const allowedPath = '/yin-yizhen/sonic-topography/releases';
+    if (target.protocol !== 'https:' || target.hostname !== 'github.com' || (target.pathname !== allowedPath && !target.pathname.startsWith(`${allowedPath}/`))) {
+      return { ok: false, error: 'Invalid update release URL' };
+    }
+    await shell.openExternal(target.toString());
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Invalid update release URL' };
+  }
 });
 
 app.on('window-all-closed', () => {
