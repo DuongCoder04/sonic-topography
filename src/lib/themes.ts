@@ -33,7 +33,21 @@ export interface ThemeRotationSettings {
 }
 
 export const CUSTOM_THEME_ID = 'custom';
-export const BUILT_IN_THEME_IDS = ['ink-wash', 'nocturnal', 'neon-tokyo', 'cyber-forest', 'minimal-monochrome'];
+export const BUILT_IN_THEME_IDS = [
+  'ink-wash',
+  'nocturnal',
+  'neon-tokyo',
+  'cyber-forest',
+  'minimal-monochrome',
+  'glacier-day',
+  'koi-pond',
+  'coral-reef',
+  'moss-glass',
+  'blue-hour',
+  'porcelain-teal',
+  'wine-signal',
+  'daybreak-lime',
+];
 export const DEFAULT_THEME_ID = 'minimal-monochrome';
 export const CUSTOM_THEME_STORAGE_KEY = 'sonic-topography-custom-themes-v2';
 export const LEGACY_CUSTOM_THEME_STORAGE_KEY = 'sonic-topography-custom-theme-v1';
@@ -56,7 +70,22 @@ export const defaultCustomThemeSettings: CustomThemeSettings = {
 export const defaultThemeRotationSettings: ThemeRotationSettings = {
   enabled: false,
   intervalSeconds: 10,
-  themeIds: ['neon-tokyo', 'nocturnal', 'cyber-forest', 'minimal-monochrome', defaultCustomThemeSettings.id, 'ink-wash'],
+  themeIds: [
+    'glacier-day',
+    'koi-pond',
+    'neon-tokyo',
+    'coral-reef',
+    'cyber-forest',
+    'moss-glass',
+    'blue-hour',
+    'minimal-monochrome',
+    'porcelain-teal',
+    'wine-signal',
+    'daybreak-lime',
+    defaultCustomThemeSettings.id,
+    'ink-wash',
+    'nocturnal',
+  ],
 };
 
 function normalizeHexColor(value: unknown, fallback: string) {
@@ -214,6 +243,30 @@ export function createCustomThemeColors(settings: CustomThemeSettings): ThemeCol
   };
 }
 
+function createBuiltInTheme(
+  id: string,
+  name: string,
+  colors: Pick<CustomThemeSettings, 'background' | 'fog' | 'cool' | 'warm' | 'accent' | 'glowIntensity'>,
+): ThemeColors {
+  const base = new THREE.Color(colors.background);
+  const cool = new THREE.Color(colors.cool);
+  const warm = new THREE.Color(colors.warm);
+
+  return {
+    name,
+    id,
+    uBaseColor1: base.clone(),
+    uBaseColor2: base.clone().lerp(new THREE.Color(0xffffff), 0.12),
+    uFogColor: new THREE.Color(colors.fog),
+    uCoolCore: cool.clone(),
+    uCoolEdge: cool.clone().lerp(base, 0.35),
+    uWarmCore: warm.clone(),
+    uWarmEdge: warm.clone().lerp(base, 0.35),
+    uRippleColor: new THREE.Color(colors.accent),
+    uGlowIntensity: colors.glowIntensity,
+  };
+}
+
 export const themes: Record<string, ThemeColors> = {
   'ink-wash': {
     name: 'Ink Wash',
@@ -279,5 +332,69 @@ export const themes: Record<string, ThemeColors> = {
     uWarmEdge: new THREE.Color(0.7, 0.7, 0.7), // Light grey
     uRippleColor: new THREE.Color(1.0, 1.0, 1.0),
     uGlowIntensity: 0.8,
-  }
+  },
+  'glacier-day': createBuiltInTheme('glacier-day', 'Glacier Day', {
+    background: '#D8E6EA',
+    fog: '#E5EEF0',
+    cool: '#2D8EA3',
+    warm: '#D96F4D',
+    accent: '#2F5963',
+    glowIntensity: 0.82,
+  }),
+  'koi-pond': createBuiltInTheme('koi-pond', 'Koi Pond', {
+    background: '#123A36',
+    fog: '#0F2C2A',
+    cool: '#55D6B2',
+    warm: '#F2A65A',
+    accent: '#C8EEE4',
+    glowIntensity: 1.12,
+  }),
+  'coral-reef': createBuiltInTheme('coral-reef', 'Coral Reef', {
+    background: '#40252A',
+    fog: '#2F2024',
+    cool: '#5FCAD0',
+    warm: '#E8705F',
+    accent: '#F0B7A4',
+    glowIntensity: 1.08,
+  }),
+  'moss-glass': createBuiltInTheme('moss-glass', 'Moss Glass', {
+    background: '#2E3A24',
+    fog: '#24301E',
+    cool: '#88C8A3',
+    warm: '#D6C36D',
+    accent: '#DDE8B3',
+    glowIntensity: 0.98,
+  }),
+  'blue-hour': createBuiltInTheme('blue-hour', 'Blue Hour', {
+    background: '#273C55',
+    fog: '#1D3148',
+    cool: '#8BC5E7',
+    warm: '#F28C72',
+    accent: '#CFE7F4',
+    glowIntensity: 1.05,
+  }),
+  'porcelain-teal': createBuiltInTheme('porcelain-teal', 'Porcelain Teal', {
+    background: '#DDE8E4',
+    fog: '#EEF4F1',
+    cool: '#24786F',
+    warm: '#B85D4D',
+    accent: '#4F706A',
+    glowIntensity: 0.78,
+  }),
+  'wine-signal': createBuiltInTheme('wine-signal', 'Wine Signal', {
+    background: '#3A2430',
+    fog: '#2F202A',
+    cool: '#83C5BE',
+    warm: '#D95D73',
+    accent: '#F0CBD3',
+    glowIntensity: 1.06,
+  }),
+  'daybreak-lime': createBuiltInTheme('daybreak-lime', 'Daybreak Lime', {
+    background: '#D9E7C8',
+    fog: '#E6EFD9',
+    cool: '#2A7C72',
+    warm: '#C65B47',
+    accent: '#5C6F42',
+    glowIntensity: 0.8,
+  }),
 };

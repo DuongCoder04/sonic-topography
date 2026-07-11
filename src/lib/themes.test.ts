@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   ACTIVE_CUSTOM_THEME_STORAGE_KEY,
   ACTIVE_THEME_STORAGE_KEY,
+  BUILT_IN_THEME_IDS,
   CUSTOM_THEME_ID,
   createCustomThemeColors,
   DEFAULT_THEME_ID,
@@ -12,6 +13,7 @@ import {
   readActiveThemeStorage,
   readCustomThemeStorage,
   readThemeRotationStorage,
+  themes,
 } from './themes';
 
 const storage = new Map<string, string>();
@@ -35,12 +37,63 @@ assert.equal(readActiveCustomThemeStorage(readCustomThemeStorage()), 'custom-def
 assert.deepEqual(defaultThemeRotationSettings, {
   enabled: false,
   intervalSeconds: 10,
-  themeIds: ['neon-tokyo', 'nocturnal', 'cyber-forest', 'minimal-monochrome', 'custom-default', 'ink-wash'],
+  themeIds: [
+    'glacier-day',
+    'koi-pond',
+    'neon-tokyo',
+    'coral-reef',
+    'cyber-forest',
+    'moss-glass',
+    'blue-hour',
+    'minimal-monochrome',
+    'porcelain-teal',
+    'wine-signal',
+    'daybreak-lime',
+    'custom-default',
+    'ink-wash',
+    'nocturnal',
+  ],
 });
 assert.deepEqual(
-  readThemeRotationStorage(['ink-wash', 'nocturnal', 'neon-tokyo', 'cyber-forest', 'minimal-monochrome', 'custom-default']),
+  readThemeRotationStorage([...BUILT_IN_THEME_IDS, 'custom-default']),
   defaultThemeRotationSettings,
 );
+assert.deepEqual(BUILT_IN_THEME_IDS, [
+  'ink-wash',
+  'nocturnal',
+  'neon-tokyo',
+  'cyber-forest',
+  'minimal-monochrome',
+  'glacier-day',
+  'koi-pond',
+  'coral-reef',
+  'moss-glass',
+  'blue-hour',
+  'porcelain-teal',
+  'wine-signal',
+  'daybreak-lime',
+]);
+assert.equal(themes['glacier-day'].name, 'Glacier Day');
+assert.equal(`#${themes['glacier-day'].uBaseColor1.getHexString()}`, '#d8e6ea');
+assert.equal(`#${themes['glacier-day'].uFogColor.getHexString()}`, '#e5eef0');
+assert.equal(`#${themes['glacier-day'].uCoolCore.getHexString()}`, '#2d8ea3');
+assert.equal(`#${themes['glacier-day'].uWarmCore.getHexString()}`, '#d96f4d');
+assert.equal(`#${themes['glacier-day'].uRippleColor.getHexString()}`, '#2f5963');
+assert.equal(themes['glacier-day'].uGlowIntensity, 0.82);
+assert.equal(themes['koi-pond'].name, 'Koi Pond');
+assert.equal(`#${themes['koi-pond'].uBaseColor1.getHexString()}`, '#123a36');
+assert.equal(`#${themes['koi-pond'].uFogColor.getHexString()}`, '#0f2c2a');
+assert.equal(`#${themes['koi-pond'].uCoolCore.getHexString()}`, '#55d6b2');
+assert.equal(`#${themes['koi-pond'].uWarmCore.getHexString()}`, '#f2a65a');
+assert.equal(`#${themes['koi-pond'].uRippleColor.getHexString()}`, '#c8eee4');
+assert.equal(themes['koi-pond'].uGlowIntensity, 1.12);
+assert.equal(themes['coral-reef'].name, 'Coral Reef');
+assert.equal(`#${themes['coral-reef'].uBaseColor1.getHexString()}`, '#40252a');
+assert.equal(`#${themes['coral-reef'].uFogColor.getHexString()}`, '#2f2024');
+assert.equal(`#${themes['coral-reef'].uCoolCore.getHexString()}`, '#5fcad0');
+assert.equal(`#${themes['coral-reef'].uWarmCore.getHexString()}`, '#e8705f');
+assert.equal(`#${themes['coral-reef'].uRippleColor.getHexString()}`, '#f0b7a4');
+assert.equal(themes['coral-reef'].uGlowIntensity, 1.08);
 
 storage.set(ACTIVE_THEME_STORAGE_KEY, 'ink-wash');
 assert.equal(readActiveThemeStorage(), 'ink-wash');
