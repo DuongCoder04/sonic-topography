@@ -17,6 +17,7 @@ updates/
 docs/*
 !docs/
 !docs/code-map.md
+!docs/auto-update-guide.md
 sonic-city/
 SONIC_TOPOGRAPHY_STYLE.md
 sonic-topography-douyin-cover*.png

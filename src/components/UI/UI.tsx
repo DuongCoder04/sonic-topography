@@ -27,13 +27,8 @@ import {
 } from '../../lib/displaySettings';
 import { ClockDisplay } from './ClockDisplay';
 import { extractAudioMetadata } from '../../lib/metadata';
+import { readNeteaseCookieStorage, writeNeteaseCookieStorage } from '../../lib/neteaseCookie';
 import {
-  createNeteaseCookieHeaders,
-  readNeteaseCookieStorage,
-  writeNeteaseCookieStorage,
-} from '../../lib/neteaseCookie';
-import {
-  createQQCookieHeaders,
   getQQCookieLoginState,
   readQQCookieStorage,
   writeQQCookieStorage,
@@ -71,18 +66,41 @@ import {
   type PlaybackQualitySettings,
   type QQPlaybackQuality,
 } from '../../lib/playbackQuality';
-import {
-  hasMediaDeviceSupport,
-  listAudioInputDevices,
-  type AudioInputDevice,
-  type AudioInputMode,
-} from '../../lib/audioInput';
-import {
-  readSkippedUpdateVersionStorage,
-  shouldShowUpdatePrompt,
-  writeSkippedUpdateVersionStorage,
-} from '../../lib/updatePrompt';
 import { isRepeatOneMode, nextPlayMode, type PlayMode } from '../../lib/playMode';
+import {
+  hasSavedSongs,
+  readPinnedNeteasePlaylistsStorage,
+  readPinnedQQPlaylistsStorage,
+  readSavedPlaylists,
+  readSearchProviderStorage,
+  readSideNavHintSeen,
+  writePinnedNeteasePlaylistsStorage,
+  writePinnedQQPlaylistsStorage,
+  writeSavedPlaylists,
+  writeSearchProviderStorage,
+  writeSideNavHintSeen,
+  type SearchProvider,
+} from '../../lib/uiStorage';
+import type {
+  AvailableUpdateInfo,
+  CloudPlaylistSummary as NeteasePlaylistSummary,
+  NeteaseSong,
+  SavedPlaylist,
+  UpdateDownloadJob,
+} from '../../types';
+import {
+  loadCloudPayload,
+  loadServerPlaylists,
+  loadSongLyrics,
+  loadSongPlaybackResources,
+  logoutQQProxy,
+  saveServerPlaylists,
+  searchCloudMusic,
+  syncNeteaseProxyCookie,
+  syncQQProxyCookie,
+} from '../../lib/musicApi';
+import { formatBytes, useUpdateController } from './useUpdateController';
+import { useAudioInputController } from './useAudioInputController';
 
 interface UIProps {
   theme: string;
@@ -108,162 +126,14 @@ interface UIProps {
   onResetCamera?: () => void;
 }
 
-interface NeteaseSong {
-  provider?: 'netease' | 'qq';
-  id: number | string;
-  qqId?: number | string;
-  mid?: string;
-  songmid?: string;
-  mediaMid?: string;
-  cover?: string;
-  name: string;
-  artist: string;
-  album: string;
-  duration: number;
-  fee: number;
-}
-
-interface SavedPlaylist {
-  id: string;
-  name: string;
-  songs: NeteaseSong[];
-}
-
-interface NeteasePlaylistSummary {
-  provider?: 'netease' | 'qq';
-  id: number | string;
-  name: string;
-  trackCount: number;
-  loadedCount?: number;
-  cover?: string;
-  creator?: string;
-  isFavorite?: boolean;
-}
-
 type OptionsTab = 'Pulse' | 'Meteor' | 'FloatingBlocks' | 'GroundEq' | 'Color' | 'Audio' | 'Account' | 'Lyrics' | 'Display';
 type NeteaseCloudTab = 'liked' | 'playlists' | 'daily';
 type CloudProvider = 'netease' | 'qq';
-type SearchProvider = 'netease' | 'qq';
 type PendingDelete =
   | { type: 'song'; playlistId: string; songId: number | string; label: string }
   | { type: 'playlist'; playlistId: string; label: string };
 
-interface UpdateReleaseInfo {
-  tagName?: string;
-  name?: string;
-  htmlUrl?: string;
-  publishedAt?: string;
-  notes?: string;
-}
-
-interface AvailableUpdateInfo {
-  configured?: boolean;
-  currentVersion?: string;
-  latestVersion?: string;
-  updateAvailable?: boolean;
-  release?: UpdateReleaseInfo;
-}
-
-interface UpdateDownloadJob {
-  id: string;
-  status: 'queued' | 'downloading' | 'ready' | 'failed';
-  version?: string;
-  name?: string;
-  received?: number;
-  total?: number;
-  filePath?: string;
-  error?: string;
-  errorCode?: string;
-  releaseUrl?: string;
-  channelName?: string;
-  attempts?: Array<{ name?: string; status?: string; error?: string; errorCode?: string; httpStatus?: number }>;
-}
-
-const PLAYLIST_STORAGE_KEY = 'sonic-topography-playlists-v1';
-const SIDE_NAV_HINT_STORAGE_KEY = 'sonic-topography-side-nav-hint-seen-v1';
-const SEARCH_PROVIDER_STORAGE_KEY = 'sonic-topography-search-provider-v1';
 const baseUrl = import.meta.env.BASE_URL || '/';
-
-const PINNED_NETEASE_PLAYLISTS_STORAGE_KEY = 'sonic-topography-pinned-netease-v1';
-const PINNED_QQ_PLAYLISTS_STORAGE_KEY = 'sonic-topography-pinned-qq-v1';
-
-function readPinnedNeteasePlaylistsStorage(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(PINNED_NETEASE_PLAYLISTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function writePinnedNeteasePlaylistsStorage(pinned: string[]) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(PINNED_NETEASE_PLAYLISTS_STORAGE_KEY, JSON.stringify(pinned));
-}
-
-function readPinnedQQPlaylistsStorage(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(PINNED_QQ_PLAYLISTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function writePinnedQQPlaylistsStorage(pinned: string[]) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(PINNED_QQ_PLAYLISTS_STORAGE_KEY, JSON.stringify(pinned));
-}
-
-function readSideNavHintSeen() {
-  if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(SIDE_NAV_HINT_STORAGE_KEY) === '1';
-}
-
-function writeSideNavHintSeen() {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(SIDE_NAV_HINT_STORAGE_KEY, '1');
-}
-
-function readSearchProviderStorage(): SearchProvider {
-  if (typeof window === 'undefined') return 'netease';
-  return window.localStorage.getItem(SEARCH_PROVIDER_STORAGE_KEY) === 'qq' ? 'qq' : 'netease';
-}
-
-function writeSearchProviderStorage(provider: SearchProvider) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(SEARCH_PROVIDER_STORAGE_KEY, provider);
-}
-
-function createDefaultPlaylists(): SavedPlaylist[] {
-  return [
-    { id: 'favorites', name: 'Favorites', songs: [] },
-    { id: 'visual-set', name: 'Visual Set', songs: [] },
-  ];
-}
-
-function readSavedPlaylists(): SavedPlaylist[] {
-  try {
-    const raw = window.localStorage.getItem(PLAYLIST_STORAGE_KEY);
-    if (!raw) return createDefaultPlaylists();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return createDefaultPlaylists();
-    return parsed.map((playlist: SavedPlaylist) => ({
-      id: playlist.id,
-      name: playlist.name,
-      songs: Array.isArray(playlist.songs) ? playlist.songs : [],
-    }));
-  } catch (error) {
-    console.warn('Unable to read saved playlists:', error);
-    return createDefaultPlaylists();
-  }
-}
-
-function hasSavedSongs(playlists: SavedPlaylist[]): boolean {
-  return playlists.some((playlist) => playlist.songs.length > 0);
-}
 
 function songIdentity(song: Pick<NeteaseSong, 'id' | 'provider'>) {
   return `${song.provider || 'netease'}:${String(song.id)}`;
@@ -439,6 +309,19 @@ loadStoredTriggerSettings();
 
 export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, themeRotation, groundEqSettings, onThemeChange, onCustomThemesChange, onThemeRotationChange, onGroundEqSettingsChange, lyricsSettings, onLyricsSettingsChange, globalSceneSettings, onGlobalSceneSettingsChange, onCurrentSongChange, onCurrentLyricsChange, onLyricsVisibilityChange, onCoverVisibilityChange, isPerspectiveEditMode, onPerspectiveEditModeChange, onResetCamera }: UIProps) {
   const lang = useLanguage();
+  const {
+    updateStatus,
+    isCheckingUpdate,
+    availableUpdate,
+    showUpdatePrompt,
+    downloadJob,
+    showUpdateReleaseFallback,
+    checkForUpdate,
+    startUpdateDownload,
+    openUpdateRelease,
+    remindUpdateLater,
+    skipThisUpdateVersion,
+  } = useUpdateController(lang);
   const currentStyleConfig = lyricsSettings[lyricsSettings.style] || (lyricsSettings as any)['songyancai'] || {
     activeFontSize: 32, inactiveFontSize: 18, fontColor: '#ffffff', glowColor: '#00ffff',
     followThemeGlow: true, karaokeColor: '#00ffff', followThemeKaraoke: true,
@@ -501,17 +384,42 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [playQueue, setPlayQueue] = useState<NeteaseSong[]>([]);
   const [currentSongId, setCurrentSongId] = useState<number | string | null>(null);
   const [currentSong, setCurrentSongState] = useState<NeteaseSong | null>(null);
-  const [audioInputMode, setAudioInputMode] = useState<AudioInputMode>('player');
-  const [audioInputDevices, setAudioInputDevices] = useState<AudioInputDevice[]>([]);
-  const [selectedAudioInputId, setSelectedAudioInputId] = useState('');
-  const [audioInputStatus, setAudioInputStatus] = useState('');
-
   const setCurrentSong = (song: NeteaseSong | null) => {
     setCurrentSongState(song);
     if (onCurrentSongChange) {
       onCurrentSongChange(song);
     }
   };
+
+  const {
+    audioInputMode,
+    audioInputDevices,
+    selectedAudioInputId,
+    audioInputStatus,
+    setAudioInputMode,
+    setSelectedAudioInputId,
+    setAudioInputStatus,
+    refreshAudioInputDevices,
+    startSystemAudioInput,
+    startMicrophoneInput,
+    returnToPlayerInput,
+  } = useAudioInputController({
+    currentTrackName: trackName,
+    hasCurrentSong: Boolean(currentSong),
+    onPrepareExternalInput: (label) => {
+      setTrackName(label);
+      setCurrentSong(null);
+      setCurrentSongId(null);
+      setCurrentCover('');
+      setLyricsText('');
+      setSearchStatus('');
+      setShowSearchPanel(false);
+      setShowNeteasePanel(false);
+    },
+    onResetDisconnectedInput: () => setTrackName('No track selected'),
+    onReturnToPlayer: () => setTrackName('No track selected'),
+    onClosePanel: () => setShowAudioInputPanel(false),
+  });
 
   useEffect(() => {
     onCurrentLyricsChange?.(lyricsText);
@@ -536,13 +444,6 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [isSyncingNeteaseCookie, setIsSyncingNeteaseCookie] = useState(false);
   const [isSyncingQQCookie, setIsSyncingQQCookie] = useState(false);
   const [desktopLoginStatus, setDesktopLoginStatus] = useState('');
-  const [updateStatus, setUpdateStatus] = useState('');
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdateInfo | null>(null);
-  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
-  const [downloadJob, setDownloadJob] = useState<UpdateDownloadJob | null>(null);
-  const [showUpdateReleaseFallback, setShowUpdateReleaseFallback] = useState(false);
-  const [skippedUpdateVersion, setSkippedUpdateVersion] = useState(readSkippedUpdateVersionStorage);
   const [isMobileSideNavOpen, setIsMobileSideNavOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [fetchedNeteasePlaylists, setFetchedNeteasePlaylists] = useState<NeteasePlaylistSummary[]>([]);
@@ -565,7 +466,6 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [presetTransferStatus, setPresetTransferStatus] = useState('');
   const hasLoadedPlaylistsRef = useRef(false);
-  const updatePollTimerRef = useRef<number | null>(null);
   const hasBothCloudLogins = isNeteaseCookieValid && isQQCookieValid;
   const effectiveSearchProvider: SearchProvider = hasBothCloudLogins
     ? searchProvider
@@ -659,55 +559,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     writePlaybackQualitySettingsStorage(playbackQualitySettings);
   }, [playbackQualitySettings]);
 
-  const refreshAudioInputDevices = async () => {
-    if (!hasMediaDeviceSupport()) {
-      setAudioInputDevices([]);
-      return;
-    }
-
-    try {
-      const devices = await listAudioInputDevices();
-      setAudioInputDevices(devices);
-      if (!selectedAudioInputId && devices[0]) setSelectedAudioInputId(devices[0].id);
-      if (selectedAudioInputId && !devices.some((device) => device.id === selectedAudioInputId)) {
-        setSelectedAudioInputId(devices[0]?.id || '');
-        if (audioInputMode === 'microphone') {
-          setAudioInputStatus('Microphone disconnected. Choose another input.');
-          engine.stopExternalInput();
-          setAudioInputMode('player');
-          setTrackName('No track selected');
-        }
-      }
-    } catch (error) {
-      console.warn('Unable to list audio input devices:', error);
-      setAudioInputStatus('Unable to read audio input devices.');
-    }
-  };
-
-  useEffect(() => {
-    refreshAudioInputDevices();
-    const mediaDevices = navigator.mediaDevices;
-    if (!mediaDevices?.addEventListener) return;
-    mediaDevices.addEventListener('devicechange', refreshAudioInputDevices);
-    return () => mediaDevices.removeEventListener('devicechange', refreshAudioInputDevices);
-  }, [selectedAudioInputId, audioInputMode]);
-
-  useEffect(() => {
-    return () => engine.stopExternalInput();
-  }, []);
-
   useEffect(() => {
     if (isMobileSideNavOpen) markSideNavHintSeen();
   }, [isMobileSideNavOpen]);
 
   useEffect(() => {
     if (!hasLoadedPlaylistsRef.current) return;
-    window.localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(playlists));
-    fetch('/api/playlists', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playlists }),
-    }).catch((error) => {
+    writeSavedPlaylists(playlists);
+    saveServerPlaylists(playlists).catch((error) => {
       console.warn('Unable to save playlists to local server:', error);
     });
   }, [playlists]);
@@ -720,23 +579,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
     setIsSyncingNeteaseCookie(true);
     try {
-      const response = await fetch('/api/netease/cookie', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookie }),
-      });
-      const data = await response.json();
+      const { data } = await syncNeteaseProxyCookie(cookie);
       const valid = Boolean(data.valid);
       setIsNeteaseCookieValid(valid);
       if (!options.silent) {
         setCookieStatus(normalizedCookie ? (valid ? t('ui.text.6', lang) : t('ui.text.7', lang)) : t('ui.text.8', lang));
       }
       if (normalizedCookie && !valid) {
-        fetch('/api/netease/cookie', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cookie: '' }),
-        }).catch((error) => {
+        syncNeteaseProxyCookie('').catch((error) => {
           console.warn('Unable to clear invalid Netease proxy cookie:', error);
         });
       }
@@ -761,13 +611,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
 
     setIsSyncingQQCookie(true);
     try {
-      const response = await fetch('/api/qq/login/cookie', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookie }),
-      });
-      const data = await response.json();
-      const valid = response.ok && Boolean(data.loggedIn);
+      const { ok, data } = await syncQQProxyCookie(cookie);
+      const valid = ok && Boolean(data.loggedIn);
       setIsQQCookieValid(valid);
       if (!options.silent) {
         setQQCookieStatus(normalizedCookie ? (valid ? t('ui.text.11', lang) : t('ui.text.12', lang)) : t('ui.text.13', lang));
@@ -831,7 +676,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setQQCookie('');
     setIsQQCookieValid(false);
     setQQCookieStatus(t('ui.text.15', lang));
-    await fetch('/api/qq/logout').catch((error) => {
+    await logoutQQProxy().catch((error) => {
       console.warn('Unable to clear QQ proxy cookie:', error);
     });
     if (window.sonicDesktop?.isDesktop) {
@@ -884,132 +729,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     }
   };
 
-  const clearUpdatePollTimer = () => {
-    if (updatePollTimerRef.current !== null) {
-      window.clearTimeout(updatePollTimerRef.current);
-      updatePollTimerRef.current = null;
-    }
-  };
-
-  const checkForUpdate = async (options: { silent?: boolean; manual?: boolean } = {}) => {
-    setIsCheckingUpdate(true);
-    if (!options.silent) setUpdateStatus(t('ui.text.27', lang));
-    try {
-      const response = await fetch('/api/update/latest');
-      const data = await response.json();
-      if (!data.configured) {
-        if (!options.silent) setUpdateStatus(t('ui.text.28', lang));
-        return;
-      }
-      if (!data.updateAvailable) {
-        if (!options.silent) setUpdateStatus(`当前已是最新版本 ${data.currentVersion}`);
-        return;
-      }
-      setAvailableUpdate(data);
-      setDownloadJob(null);
-      setShowUpdateReleaseFallback(false);
-      setUpdateStatus(`发现新版本 ${data.latestVersion}`);
-      if (options.manual || shouldShowUpdatePrompt(data.latestVersion, skippedUpdateVersion)) {
-        setShowUpdatePrompt(true);
-      }
-    } catch (error) {
-      console.warn('Unable to check updates:', error);
-      if (!options.silent) setUpdateStatus(t('ui.text.29', lang));
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
-
-  const startUpdateDownload = async () => {
-    clearUpdatePollTimer();
-    setShowUpdateReleaseFallback(false);
-    setUpdateStatus(t('ui.text.30', lang));
-    try {
-      const downloadResponse = await fetch('/api/update/download', { method: 'POST' });
-      const downloadData = await downloadResponse.json();
-      if (!downloadData.ok || !downloadData.job?.id) {
-        setUpdateStatus(downloadData.error || t('ui.text.31', lang));
-        return;
-      }
-      setDownloadJob(downloadData.job);
-      const poll = async () => {
-        try {
-          const statusResponse = await fetch(`/api/update/download/status?id=${encodeURIComponent(downloadData.job.id)}`);
-          const statusData = await statusResponse.json();
-          const job = statusData.job as UpdateDownloadJob | undefined;
-          if (!job) {
-            setUpdateStatus(t('ui.text.32', lang));
-            return;
-          }
-          setDownloadJob(job);
-          if (job.status === 'ready') {
-            if (window.sonicDesktop?.isDesktop && job.filePath) {
-              const result = await window.sonicDesktop.openUpdateInstaller(job.filePath);
-              if (!result?.ok) {
-                setUpdateStatus(`${t('ui.text.344', lang)}${result?.error ? `: ${result.error}` : ''}`);
-                setShowUpdateReleaseFallback(true);
-                return;
-              }
-            }
-            setUpdateStatus(t('ui.text.33', lang));
-            return;
-          }
-          if (job.status === 'failed') {
-            setUpdateStatus(t('ui.text.343', lang));
-            setShowUpdateReleaseFallback(true);
-            return;
-          }
-          const total = Number(job.total || 0);
-          const progress = total > 0
-            ? `${formatBytes(job.received)} / ${formatBytes(total)}`
-            : `已下载 ${formatBytes(job.received)}`;
-          setUpdateStatus(`正在通过 ${job.channelName || t('ui.text.35', lang)} 下载... ${progress}`);
-          updatePollTimerRef.current = window.setTimeout(poll, 1000);
-        } catch (error) {
-          console.warn('Unable to poll update download:', error);
-          setUpdateStatus(t('ui.text.36', lang));
-        }
-      };
-      poll();
-    } catch (error) {
-      console.warn('Unable to start update download:', error);
-      setUpdateStatus(t('ui.text.37', lang));
-    }
-  };
-
-  const openUpdateRelease = async () => {
-    const releaseUrl = downloadJob?.releaseUrl || availableUpdate?.release?.htmlUrl || '';
-    if (!releaseUrl || !window.sonicDesktop?.isDesktop) return;
-    const result = await window.sonicDesktop.openUpdateRelease(releaseUrl);
-    if (!result?.ok) setUpdateStatus(`${t('ui.text.346', lang)}${result?.error ? `: ${result.error}` : ''}`);
-  };
-
-  const remindUpdateLater = () => {
-    setShowUpdatePrompt(false);
-  };
-
-  const skipThisUpdateVersion = () => {
-    const version = availableUpdate?.latestVersion || '';
-    writeSkippedUpdateVersionStorage(version);
-    setSkippedUpdateVersion(version);
-    setShowUpdatePrompt(false);
-  };
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      checkForUpdate({ silent: true });
-    }, 5000);
-    return () => window.clearTimeout(timer);
-  }, [skippedUpdateVersion]);
-
-  useEffect(() => clearUpdatePollTimer, []);
-
   const syncImportedPlaylists = (nextPlaylists: SavedPlaylist[]) => {
-    fetch('/api/playlists', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playlists: nextPlaylists }),
-    }).catch((error) => {
+    saveServerPlaylists(nextPlaylists).catch((error) => {
       console.warn('Unable to save imported playlists to local server:', error);
     });
   };
@@ -1075,13 +796,10 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setNeteaseCloudStatus(t('ui.text.43', lang));
 
     try {
-      const response = await fetch(url, {
-        headers: provider === 'qq' ? createQQCookieHeaders(readyCookie) : createNeteaseCookieHeaders(readyCookie),
-      });
-      const data = await response.json();
+      const { ok, status, data } = await loadCloudPayload(url, provider, readyCookie);
 
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!ok) {
+        if (status === 401) {
           if (provider === 'qq') setIsQQCookieValid(false);
           else setIsNeteaseCookieValid(false);
           setNeteaseCloudStatus(`${label}账号失效了，请重新登录`);
@@ -1139,9 +857,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setIsLoadingNeteaseCloud(true);
     setNeteaseCloudStatus(t('ui.text.48', lang));
     try {
-      const response = await fetch('/api/qq/user/playlists', { headers: createQQCookieHeaders(readyCookie) });
-      const data = await response.json();
-      if (!response.ok) {
+      const { ok, data } = await loadCloudPayload('/api/qq/user/playlists', 'qq', readyCookie);
+      if (!ok) {
         setIsQQCookieValid(false);
         setNeteaseCloudStatus(t('ui.text.49', lang));
         openOptionsPanel();
@@ -1178,13 +895,14 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setNeteaseCloudStatus(t('ui.text.55', lang));
 
     try {
-      const response = await fetch(provider === 'qq' ? '/api/qq/user/playlists' : '/api/netease/playlists', {
-        headers: provider === 'qq' ? createQQCookieHeaders(readyCookie) : createNeteaseCookieHeaders(readyCookie),
-      });
-      const data = await response.json();
+      const { ok, status, data } = await loadCloudPayload(
+        provider === 'qq' ? '/api/qq/user/playlists' : '/api/netease/playlists',
+        provider,
+        readyCookie,
+      );
 
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!ok) {
+        if (status === 401) {
           if (provider === 'qq') setIsQQCookieValid(false);
           else setIsNeteaseCookieValid(false);
           setNeteaseCloudStatus(`${label}账号失效了，请重新登录`);
@@ -1220,9 +938,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
   useEffect(() => {
     const loadPlaylists = async () => {
       try {
-        const response = await fetch('/api/playlists');
-        if (!response.ok) throw new Error('Playlist request failed');
-        const data = await response.json();
+        const { ok, data } = await loadServerPlaylists();
+        if (!ok) throw new Error('Playlist request failed');
         if (Array.isArray(data.playlists) && data.playlists.length > 0) {
           const serverPlaylists = data.playlists;
           const browserPlaylists = readSavedPlaylists();
@@ -1247,9 +964,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       if (isNeteaseCookieValid && fetchedNeteasePlaylists.length === 0) {
         ensureCloudCookieReady('netease').then(cookie => {
           if (!cookie) return;
-          fetch('/api/netease/playlists', { headers: createNeteaseCookieHeaders(cookie) })
-            .then(res => res.json())
-            .then(data => {
+          loadCloudPayload('/api/netease/playlists', 'netease', cookie)
+            .then(({ data }) => {
                if (data.playlists) setFetchedNeteasePlaylists(data.playlists);
             }).catch(() => {});
         });
@@ -1257,9 +973,8 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       if (isQQCookieValid && fetchedQQPlaylists.length === 0) {
         ensureCloudCookieReady('qq').then(cookie => {
           if (!cookie) return;
-          fetch('/api/qq/user/playlists', { headers: createQQCookieHeaders(cookie) })
-            .then(res => res.json())
-            .then(data => {
+          loadCloudPayload('/api/qq/user/playlists', 'qq', cookie)
+            .then(({ data }) => {
                if (data.playlists) {
                  setFetchedQQPlaylists(data.playlists.filter((p: NeteasePlaylistSummary) => !p.isFavorite));
                }
@@ -1314,83 +1029,6 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
       console.warn('Unable to toggle fullscreen:', error);
     } finally {
       setIsMobileSideNavOpen(false);
-    }
-  };
-
-  const prepareExternalInputUi = (label: string, mode: AudioInputMode) => {
-    setAudioInputMode(mode);
-    setTrackName(label);
-    setCurrentSong(null);
-    setCurrentSongId(null);
-    setCurrentCover('');
-    setLyricsText('');
-    setSearchStatus('');
-    setShowSearchPanel(false);
-    setShowNeteasePanel(false);
-  };
-
-  const startSystemAudioInput = async () => {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setAudioInputStatus('System audio capture is not available in this environment.');
-      return;
-    }
-    if (window.sonicDesktop?.isDesktop && !window.sonicDesktop.supportsSystemAudioLoopback) {
-      setAudioInputStatus('System audio capture is currently supported on Windows.');
-      return;
-    }
-
-    try {
-      setAudioInputStatus('Starting system audio...');
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
-      stream.getVideoTracks().forEach((track) => track.stop());
-      if (stream.getAudioTracks().length === 0) {
-        stream.getTracks().forEach((track) => track.stop());
-        setAudioInputStatus('No system audio track was captured.');
-        return;
-      }
-      engine.loadStream(stream, 'system');
-      prepareExternalInputUi('System Audio Input', 'system');
-      setAudioInputStatus('Listening to system audio.');
-      setShowAudioInputPanel(false);
-    } catch (error) {
-      console.warn('Unable to start system audio input:', error);
-      setAudioInputStatus('Unable to start system audio capture.');
-    }
-  };
-
-  const startMicrophoneInput = async (deviceId = selectedAudioInputId) => {
-    if (!hasMediaDeviceSupport()) {
-      setAudioInputStatus('Microphone capture is not available in this environment.');
-      return;
-    }
-
-    try {
-      setAudioInputStatus('Starting microphone...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
-        video: false,
-      });
-      await refreshAudioInputDevices();
-      const device = audioInputDevices.find((item) => item.id === deviceId);
-      engine.loadStream(stream, 'microphone');
-      prepareExternalInputUi(device?.label ? `Mic: ${device.label}` : 'Microphone Input', 'microphone');
-      setAudioInputStatus(device?.label ? `Listening to ${device.label}.` : 'Listening to microphone.');
-      setShowAudioInputPanel(false);
-    } catch (error) {
-      console.warn('Unable to start microphone input:', error);
-      setAudioInputStatus('Unable to start microphone input. Check device permission.');
-    }
-  };
-
-  const returnToPlayerInput = () => {
-    engine.stopExternalInput();
-    setAudioInputMode('player');
-    setAudioInputStatus('');
-    if (!currentSong && (trackName === 'System Audio Input' || trackName === 'Microphone Input' || trackName.startsWith('Mic: '))) {
-      setTrackName('No track selected');
     }
   };
 
@@ -1512,16 +1150,12 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     setSearchResults([]);
 
     try {
-      const searchUrl = provider === 'qq'
-        ? `/api/qq/search?keywords=${encodeURIComponent(keywords)}&limit=30`
-        : (requestCookie
-          ? `/api/netease/search?keywords=${encodeURIComponent(keywords)}&limit=30`
-          : `/api/netease/search?keywords=${encodeURIComponent(keywords)}`);
-      const response = await fetch(searchUrl, {
-        headers: provider === 'qq' ? createQQCookieHeaders(requestQQCookie) : createNeteaseCookieHeaders(requestCookie),
-      });
-      if (!response.ok) throw new Error(`${provider} search request failed`);
-      const data = await response.json();
+      const { ok, data } = await searchCloudMusic(
+        provider,
+        keywords,
+        provider === 'qq' ? requestQQCookie : requestCookie,
+      );
+      if (!ok) throw new Error(`${provider} search request failed`);
 
       const songs = (Array.isArray(data.songs) ? data.songs : [])
         .map((song: NeteaseSong) => ({ ...song, provider }));
@@ -1566,16 +1200,9 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         const mid = song.mid || song.songmid || String(song.id);
         const mediaMid = song.mediaMid || '';
         const qqSong = { mid, mediaMid };
-        const [urlResponse, lyricResponse] = await Promise.all([
-          fetch(buildQQPlaybackUrl('/api/qq/song/url', qqSong, playbackQualitySettings), {
-            headers: createQQCookieHeaders(requestQQCookie),
-          }),
-          fetch(`/api/qq/lyric?mid=${encodeURIComponent(mid)}&id=${encodeURIComponent(String(song.qqId || ''))}`, {
-            headers: createQQCookieHeaders(requestQQCookie),
-          }),
-        ]);
-        const urlData = await urlResponse.json();
-        const lyricData = await lyricResponse.json();
+        const { urlData, lyricData } = await loadSongPlaybackResources(
+          song, playbackQualitySettings, requestCookie, requestQQCookie,
+        );
         setLyricsText(lyricData.lyric || lyricData.tlyric || lyricData.qrc || '');
 
         if (!urlData.url) {
@@ -1592,17 +1219,9 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
         return;
       }
 
-      const [urlResponse, lyricResponse] = await Promise.all([
-        fetch(buildNeteasePlaybackUrl('/api/netease/url', song.id, playbackQualitySettings), {
-          headers: createNeteaseCookieHeaders(requestCookie),
-        }),
-        fetch(`/api/netease/lyric?id=${song.id}`, {
-          headers: createNeteaseCookieHeaders(requestCookie),
-        }),
-      ]);
-
-      const urlData = await urlResponse.json();
-      const lyricData = await lyricResponse.json();
+      const { urlData, lyricData } = await loadSongPlaybackResources(
+        song, playbackQualitySettings, requestCookie, requestQQCookie,
+      );
       const lyric = lyricData.lyric || lyricData.translatedLyric || '';
       setLyricsText(lyric);
 
@@ -1652,14 +1271,7 @@ export function UI({ theme, resolvedTheme, customThemes, activeCustomThemeId, th
     requestQQCookie: string,
   ) => {
     try {
-      const lyricResponse = provider === 'qq'
-        ? await fetch(`/api/qq/lyric?mid=${encodeURIComponent(song.mid || song.songmid || String(song.id))}&id=${encodeURIComponent(String(song.qqId || ''))}`, {
-            headers: createQQCookieHeaders(requestQQCookie),
-          })
-        : await fetch(`/api/netease/lyric?id=${song.id}`, {
-            headers: createNeteaseCookieHeaders(requestCookie),
-          });
-      const lyricData = await lyricResponse.json();
+      const { data: lyricData } = await loadSongLyrics(song, requestCookie, requestQQCookie);
       setLyricsText(lyricData.lyric || lyricData.translatedLyric || lyricData.tlyric || lyricData.qrc || '');
     } catch (error) {
       console.warn('Unable to restore last played lyrics:', error);
@@ -4666,20 +4278,6 @@ function CustomColorPanel({
       </div>
     </div>
   );
-}
-
-function formatBytes(value: number | undefined) {
-  const bytes = Number(value || 0);
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let amount = bytes;
-  let unitIndex = 0;
-  while (amount >= 1024 && unitIndex < units.length - 1) {
-    amount /= 1024;
-    unitIndex += 1;
-  }
-  const precision = unitIndex === 0 ? 0 : 1;
-  return `${amount.toFixed(precision)} ${units[unitIndex]}`;
 }
 
 function formatUpdatePublishedAt(value?: string) {

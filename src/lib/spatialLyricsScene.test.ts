@@ -122,11 +122,11 @@ assert.doesNotMatch(spatialLyricsSource, /<mesh ref=\{meshRef\} position=\{SPATI
 assert.match(mapSceneSource, /mesh position=\{COVER_SCREEN_POSITION\} rotation=\{COVER_SCREEN_ROTATION\}/);
 assert.match(uiSource, /maxCharsPerLine: DEFAULT_MAX_CHARS_PER_LINE/);
 assert.match(uiSource, /spatialOrbitOffset: DEFAULT_SPATIAL_ORBIT_OFFSET/);
-assert.match(uiSource, /左右环绕位置|宸﹀彸鐜粫浣嶇疆/);
+assert.match(uiSource, /t\('ui\.text\.154', lang\)/);
 assert.match(uiSource, /min=\{SPATIAL_ORBIT_OFFSET_MIN\}/);
 assert.match(uiSource, /max=\{SPATIAL_ORBIT_OFFSET_MAX\}/);
 assert.match(uiSource, /updateConfig\(\{ spatialOrbitOffset: Number\(e\.target\.value\) \}\)/);
-assert.match(uiSource, /每行歌词容量/);
+assert.match(uiSource, /t\('ui\.text\.156', lang\)/);
 assert.match(uiSource, /max=\{MAX_CHARS_PER_LINE_MAX\}/);
 assert.match(uiSource, /updateConfig\(\{ maxCharsPerLine: Number\(e\.target\.value\) \}\)/);
 

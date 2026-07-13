@@ -10,10 +10,10 @@ Last fully verified commit: `unknown`
 | --- | --- | --- | --- |
 | Electron shell, window chrome, login bridge, installer config | `desktop/main.js`, `desktop/preload.cjs`, `scripts/dev-electron.mjs`, `package.json` | `src/lib/neteaseCookie.test.ts`, `src/lib/qqCookie.test.ts` | `npm run dev:electron`, `npm run build:electron:dir`, `npm run build:electron` |
 | Anonymous desktop usage analytics | `desktop/analytics.js`, `desktop/main.js`, `README.md`, `README.en.md` | `desktop/analytics.test.mjs` | `node desktop/analytics.test.mjs`, `npm run lint`, `npm run build:electron:dir`, verify open/heartbeat/close events in SLS |
-| Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/index.css`, `src/App.tsx` | `src/lib/playMode.test.ts`, `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts` | `npx tsx src/lib/playMode.test.ts`, `npm run lint`, `npm run build`, `npm run dev:electron` |
+| Player UI, sidebar, search, cloud music panel | `src/components/UI/UI.tsx`, `src/components/UI/useAudioInputController.ts`, `src/components/UI/useUpdateController.ts`, `src/lib/musicApi.ts`, `src/lib/uiStorage.ts`, `src/index.css`, `src/App.tsx` | `src/lib/playMode.test.ts`, `src/lib/triggerSettings.test.ts`, `src/lib/presetTransfer.test.ts`, `src/**/*.vitest.test.tsx` | `npm test`, `npm run lint`, `npm run build`, `npm run dev:electron` |
 | Language switching and UI copy | `src/lib/i18n.ts`, `src/lib/locales.ts`, `src/components/UI/UI.tsx` | none dedicated yet | `npm run lint`, `npm run build`, manual zh/en toggle check in Electron |
 | Playback quality selection | `src/components/UI/UI.tsx`, `src/lib/playbackQuality.ts`, `server/netease-playback.mjs`, `server/netease-audio-proxy.mjs`, `vite.config.ts`, `local-server.mjs`, `server/qq-music.mjs` | `src/lib/playbackQuality.test.ts`, `src/lib/neteasePlayback.test.ts`, `src/lib/neteaseAudioProxy.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/playbackQuality.test.ts`, `npx tsx src/lib/neteasePlayback.test.ts`, `npx tsx src/lib/neteaseAudioProxy.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run lint`, `npm run build` |
-| Netease API, cookies, liked songs, playlists, daily recommendations | `vite.config.ts`, `local-server.mjs`, `server/netease-library.mjs`, `src/lib/neteaseCookie.ts` | `src/lib/neteaseCookie.test.ts`, `src/lib/neteasePlaylist.test.ts` | `npx tsx src/lib/neteaseCookie.test.ts`, `npx tsx src/lib/neteasePlaylist.test.ts`, `npm run build` |
+| Netease API, cookies, liked songs, playlists, daily recommendations | `server/netease-service.mjs`, `vite.config.ts`, `local-server.mjs`, `server/netease-library.mjs`, `src/lib/neteaseCookie.ts` | `server/netease-service.test.mjs`, `server/netease-adapters.test.mjs`, `src/lib/neteaseCookie.test.ts`, `src/lib/neteasePlaylist.test.ts` | `npm test`, `npm run build`, `npm run build:electron:dir` |
 | QQ Music API, cookies, search, personal playlists, lyrics, audio proxy | `server/qq-music.mjs`, `vite.config.ts`, `local-server.mjs`, `src/lib/qqCookie.ts` | `src/lib/qqCookie.test.ts`, `src/lib/qqMusicLibrary.test.ts` | `npx tsx src/lib/qqCookie.test.ts`, `npx tsx src/lib/qqMusicLibrary.test.ts`, `npm run build` |
 | Update checks, prompt, release notes, mirrored installer download | `server/update-service.mjs`, `src/lib/updateSource.ts`, `src/lib/updatePrompt.ts`, `src/components/UI/UI.tsx`, `desktop/main.js`, `package.json` | `src/lib/updateSource.test.ts`, `src/lib/updatePrompt.test.ts`, `server/update-service.test.mjs` | `npx tsx src/lib/updateSource.test.ts`, `npx tsx src/lib/updatePrompt.test.ts`, `npx tsx server/update-service.test.mjs`, `npm run build:electron:dir` |
 | Preset import/export | `src/lib/presetTransfer.ts`, `src/components/UI/UI.tsx` | `src/lib/presetTransfer.test.ts` | `npx tsx src/lib/presetTransfer.test.ts`, `npm run lint` |
@@ -122,9 +122,11 @@ Verifies the exact transmitted field whitelist, one-minute heartbeat, duration c
 
 Owns GitHub latest Release checks, installer asset selection, download job state, mirrored download URL generation, streaming progress, installer size/MZ validation, stale partial cleanup, per-channel failure logging, and fallback. Packaged mode injects Electron `net.fetch` from `desktop/main.js`; do not replace global fetch because music APIs must remain unaffected. Update diagnostics are written to `<userData>/logs/update.log`. Public mirrors are third-party and unstable, so direct GitHub remains first and failures fall through quickly.
 
-`src/components/UI/UI.tsx`
+For a user-facing release workflow and migration guide, see `docs/auto-update-guide.md`.
 
-Owns automatic startup update checks, manual check behavior, update prompt display, Release notes rendering, skip-this-version behavior, and download polling. Manual checks should show the prompt even for a skipped version; automatic checks should respect `sonic-topography-skipped-update-version-v1`.
+`src/components/UI/useUpdateController.ts`
+
+Owns automatic startup update checks, manual check behavior, skip-this-version behavior, download polling, installer handoff, and timer cleanup. `UI.tsx` renders the prompt returned by this controller. Manual checks should show the prompt even for a skipped version; automatic checks should respect `sonic-topography-skipped-update-version-v1`.
 
 `src/lib/updatePrompt.ts`
 
@@ -135,6 +137,14 @@ Stores the skipped update version and decides whether the current latest version
 `src/components/UI/UI.tsx`
 
 Main interaction surface. Owns sidebar, search, cloud music panel, account login settings, update checks, playback queue, album-cover rendering, and cloud playback dispatch. The player card polls audio time at a low fixed interval rather than every animation frame to avoid repainting the whole UI at 60fps. The custom theme `showPlayerPanel` flag controls whether the right player card is visible; the card can render an empty state before a track is loaded. The cloud panel expects provider-aware song identities such as `netease:<id>` and `qq:<id>`. Netease keeps daily recommendations; QQ only has liked songs and playlists.
+
+`src/components/UI/useUpdateController.ts` and `src/components/UI/useAudioInputController.ts`
+
+Own update polling/cleanup and local-input device/stream lifecycles respectively. Keep these side effects outside `UI.tsx`; their Vitest tests verify timer, device-listener, and external-input cleanup.
+
+`src/lib/musicApi.ts` and `src/lib/uiStorage.ts`
+
+Typed renderer boundaries for music HTTP requests and UI persistence. Existing endpoints, request headers, localStorage keys, defaults, and legacy fallbacks are compatibility contracts.
 
 `src/lib/playbackQuality.ts`
 
@@ -157,6 +167,10 @@ Bulk UI copy dictionary used by `i18n.ts`. When adding new UI text in `UI.tsx`, 
 Shared client types. `NeteaseSong` is the common cloud-song shape used by the player UI, saved playlists, and last-played storage; keep this type here instead of redefining it inside UI components.
 
 ### Netease Cloud Music
+
+`server/netease-service.mjs`
+
+Single shared Netease service for Vite and packaged Express runtimes. `createNeteaseService({ dataDir, fetchImpl })` owns cookies, caches, upstream search/account/playlist/playback calls, and playlist persistence. `vite.config.ts` and `local-server.mjs` are adapters only; do not reintroduce business helpers there. Streaming stays in `server/netease-audio-proxy.mjs`.
 
 `server/netease-library.mjs`
 
@@ -314,6 +328,9 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 | Test file | Covers |
 | --- | --- |
 | `src/lib/neteasePlaylist.test.ts` | Netease playlist `trackIds` completeness, track detail merging, playlist limit parsing |
+| `server/netease-service.test.mjs` | Shared service cookie normalization, playlist persistence, injected fetch, playable URL caching and invalidation |
+| `server/netease-adapters.test.mjs` | Vite/Express route parity and absence of duplicated Netease business functions |
+| `src/**/*.vitest.test.ts(x)` | UI storage/API contracts plus update and audio-input controller lifecycles |
 | `src/lib/playbackQuality.test.ts` | Playback quality defaults, normalization, localStorage persistence, QQ/Netease playback URL parameters |
 | `src/lib/playMode.test.ts` | Playback-mode cycle order and repeat-one detection |
 | `src/lib/neteasePlayback.test.ts` | Netease playback bitrate normalization, upstream player URL construction, playable URL cache key bitrate separation |
@@ -449,6 +466,7 @@ On this Windows workspace, Electron Builder can fail with `EPERM` while renaming
 ## Local Verification Commands
 
 ```powershell
+npm test
 npx tsx src/lib/neteasePlaylist.test.ts
 npx tsx src/lib/playbackQuality.test.ts
 npx tsx src/lib/playMode.test.ts

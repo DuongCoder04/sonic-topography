@@ -48,8 +48,10 @@ export interface TrackInfo {
   url?: string;
 }
 
+export type MusicProvider = 'netease' | 'qq';
+
 export interface NeteaseSong {
-  provider?: 'netease' | 'qq';
+  provider?: MusicProvider;
   id: number | string;
   qqId?: number | string;
   mid?: string;
@@ -61,4 +63,58 @@ export interface NeteaseSong {
   album: string;
   duration: number;
   fee: number;
+}
+
+export interface SavedPlaylist {
+  id: string;
+  name: string;
+  songs: NeteaseSong[];
+}
+
+export interface CloudPlaylistSummary {
+  provider?: 'netease' | 'qq';
+  id: number | string;
+  name: string;
+  trackCount: number;
+  loadedCount?: number;
+  cover?: string;
+  creator?: string;
+  isFavorite?: boolean;
+}
+
+export interface UpdateReleaseInfo {
+  tagName?: string;
+  name?: string;
+  htmlUrl?: string;
+  publishedAt?: string;
+  notes?: string;
+}
+
+export interface AvailableUpdateInfo {
+  configured?: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  updateAvailable?: boolean;
+  release?: UpdateReleaseInfo;
+}
+
+export interface UpdateDownloadJob {
+  id: string;
+  status: 'queued' | 'downloading' | 'ready' | 'failed';
+  version?: string;
+  name?: string;
+  received?: number;
+  total?: number;
+  filePath?: string;
+  error?: string;
+  errorCode?: string;
+  releaseUrl?: string;
+  channelName?: string;
+  attempts?: Array<{
+    name?: string;
+    status?: string;
+    error?: string;
+    errorCode?: string;
+    httpStatus?: number;
+  }>;
 }
