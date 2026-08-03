@@ -1,6 +1,6 @@
 # Sonic Topography
 
-中文 | [English](./README.en.md)
+**中文** | [English](./README.en.md) | [日本語](./README_ja.md)
 
 [下载最新版 Release](https://github.com/yin-yizhen/sonic-topography/releases/tag/1.1.1) | [Windows 版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-Setup.exe) | [macOS Apple 芯片版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-mac-arm64.dmg) | [macOS Intel 芯片版](https://github.com/yin-yizhen/sonic-topography/releases/download/1.1.1/SonicTopography-1.1.1-mac-x64.dmg)
 

@@ -1,6 +1,6 @@
 # Sonic Topography
 
-[中文](./README.md) | English
+[中文](./README.md) | **English** | [日本語](./README_ja.md)
 
 Sonic Topography is a desktop music player and 3D music visualizer. It turns low, mid, and high frequency energy into a glowing, moving terrain so music feels like a living sound map.
 
